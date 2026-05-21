@@ -1,0 +1,71 @@
+# Makefile для Linux / WSL. Использование: `make -f Makefile.linux <команда>`.
+# Целевая production-среда — Windows (см. Makefile и docs/05_INFRA.md).
+
+.PHONY: help install install-backend install-frontend migrate dev test lint format \
+        backup restore create-admin clean build-frontend run-backend run-celery \
+        run-frontend
+
+help:
+	@echo "Available commands:"
+	@echo "  make -f Makefile.linux install       - install all dependencies"
+	@echo "  make -f Makefile.linux migrate       - apply DB migrations"
+	@echo "  make -f Makefile.linux create-admin  - create first admin user (interactive)"
+	@echo "  make -f Makefile.linux test          - run all tests"
+	@echo "  make -f Makefile.linux lint          - run linters (ruff + mypy + eslint)"
+
+install: install-backend install-frontend
+
+install-backend:
+	cd backend && python -m venv .venv
+	cd backend && .venv/bin/pip install --upgrade pip
+	cd backend && .venv/bin/pip install -e ".[dev]"
+
+install-frontend:
+	cd frontend && npm install
+
+migrate:
+	cd backend && .venv/bin/alembic upgrade head
+
+create-admin:
+	cd backend && .venv/bin/python -m app.scripts.create_admin
+
+run-backend:
+	cd backend && .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+run-celery:
+	cd backend && .venv/bin/celery -A app.celery_app worker --loglevel=info --pool=solo
+
+run-frontend:
+	cd frontend && npm run dev
+
+dev:
+	@echo "Запустите три терминала параллельно:"
+	@echo "  Терминал 1: make -f Makefile.linux run-backend"
+	@echo "  Терминал 2: make -f Makefile.linux run-celery"
+	@echo "  Терминал 3: make -f Makefile.linux run-frontend"
+
+test:
+	cd backend && .venv/bin/pytest tests/ -v
+	cd frontend && npm test
+
+lint:
+	cd backend && .venv/bin/ruff check app/ tests/
+	cd backend && .venv/bin/mypy app/
+	cd frontend && npm run lint
+
+format:
+	cd backend && .venv/bin/ruff format app/ tests/
+	cd frontend && npm run format
+
+backup:
+	@mkdir -p backups
+	pg_dump -U pm_user -h localhost -F c -b -v -f "backups/process_mining_$$(date +%Y%m%d_%H%M).dump" process_mining
+
+restore:
+	@echo "Usage: pg_restore -U pm_user -h localhost -d process_mining -c -v backups/<filename>.dump"
+
+build-frontend:
+	cd frontend && npm run build
+
+clean:
+	rm -rf backend/.venv frontend/node_modules

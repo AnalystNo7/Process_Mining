@@ -1,0 +1,194 @@
+{
+  "description": "Эталонные метрики для regression-тестирования на synthetic_log.xlsx",
+  "source_file": "golden_data/synthetic_log.xlsx",
+  "generated_at": "2026-05-20T14:57:58.529950",
+  "tolerance": "±1% для float-значений, точное совпадение для int",
+  "basic_kpi": {
+    "total_cases": 1328,
+    "total_events": 25606,
+    "unique_activities": 507,
+    "period_start": "2025-01-09T11:53:47",
+    "period_end": "2025-11-07T16:19:56"
+  },
+  "case_duration": {
+    "avg_all_seconds": 1782575.43,
+    "avg_with_rework_seconds": 1904711.15,
+    "avg_without_rework_seconds": 1018392.92,
+    "n_cases_with_rework": 1145,
+    "n_cases_without_rework": 183
+  },
+  "rework_global": {
+    "total_operations": 25606,
+    "total_repeats": 5136,
+    "global_rework_pct": 20.06
+  },
+  "top10_operations_by_volume": [
+    {
+      "operation": "Проверка Договорной отдел",
+      "total": 1717,
+      "repeats": 444,
+      "rework_pct": 25.86
+    },
+    {
+      "operation": "Подготовка к подписанию Договорной отдел",
+      "total": 1633,
+      "repeats": 455,
+      "rework_pct": 27.86
+    },
+    {
+      "operation": "Дополнительное согласование Проект 022",
+      "total": 1450,
+      "repeats": 952,
+      "rework_pct": 65.66
+    },
+    {
+      "operation": "Согласование Юридическое управление",
+      "total": 1337,
+      "repeats": 318,
+      "rework_pct": 23.78
+    },
+    {
+      "operation": "Согласование Управление бухгалтерского учета и налогообложения",
+      "total": 1145,
+      "repeats": 120,
+      "rework_pct": 10.48
+    },
+    {
+      "operation": "Согласование Отдел экономической безопасности",
+      "total": 1060,
+      "repeats": 114,
+      "rework_pct": 10.75
+    },
+    {
+      "operation": "Дополнительное согласование Отдел экономической безопасности",
+      "total": 1019,
+      "repeats": 506,
+      "rework_pct": 49.66
+    },
+    {
+      "operation": "Согласование Управление закупок",
+      "total": 793,
+      "repeats": 105,
+      "rework_pct": 13.24
+    },
+    {
+      "operation": "Согласование Планово-экономическое управление",
+      "total": 721,
+      "repeats": 92,
+      "rework_pct": 12.76
+    },
+    {
+      "operation": "Дополнительное согласование Юридическое управление",
+      "total": 625,
+      "repeats": 170,
+      "rework_pct": 27.2
+    }
+  ],
+  "process_metrics": {
+    "unique_traces": 1193,
+    "variability_pct": 89.83,
+    "mean_occurrence_pct": 3.04
+  },
+  "events_per_case_distribution": {
+    "min": 5,
+    "max": 63,
+    "median": 18.0,
+    "mean": 19.28,
+    "p90": 31.0,
+    "p95": 35.0
+  },
+  "top10_departments_by_events": [
+    {
+      "department": "Договорной отдел",
+      "count": 6049
+    },
+    {
+      "department": "Отдел экономической безопасности",
+      "count": 2135
+    },
+    {
+      "department": "Юридическое управление",
+      "count": 1987
+    },
+    {
+      "department": "Проект 022",
+      "count": 1811
+    },
+    {
+      "department": "Управление бухгалтерского учета и налогообложения",
+      "count": 1295
+    },
+    {
+      "department": "Отдел правовой поддержки и судебной защиты",
+      "count": 1061
+    },
+    {
+      "department": "Отдел административной поддержки проектов",
+      "count": 992
+    },
+    {
+      "department": "Финансовое управление",
+      "count": 980
+    },
+    {
+      "department": "Управление закупок",
+      "count": 898
+    },
+    {
+      "department": "Планово-экономическое управление",
+      "count": 757
+    }
+  ],
+  "sojourn_time_top10_operations": {
+    "Проверка Договорной отдел": {
+      "avg_sec": 17163.42,
+      "median_sec": 1419.0,
+      "p90_sec": 65101.8
+    },
+    "Подготовка к подписанию Договорной отдел": {
+      "avg_sec": 49309.48,
+      "median_sec": 9959.0,
+      "p90_sec": 137461.8
+    },
+    "Дополнительное согласование Проект 022": {
+      "avg_sec": 11631.12,
+      "median_sec": 404.0,
+      "p90_sec": 36603.6
+    },
+    "Согласование Юридическое управление": {
+      "avg_sec": 22557.21,
+      "median_sec": 5530.0,
+      "p90_sec": 67990.0
+    },
+    "Согласование Управление бухгалтерского учета и налогообложения": {
+      "avg_sec": 34209.07,
+      "median_sec": 8289.0,
+      "p90_sec": 87606.2
+    },
+    "Согласование Отдел экономической безопасности": {
+      "avg_sec": 31256.14,
+      "median_sec": 5672.0,
+      "p90_sec": 75255.4
+    },
+    "Дополнительное согласование Отдел экономической безопасности": {
+      "avg_sec": 43922.16,
+      "median_sec": 6680.0,
+      "p90_sec": 166953.8
+    },
+    "Согласование Управление закупок": {
+      "avg_sec": 68590.54,
+      "median_sec": 11817.0,
+      "p90_sec": 237339.2
+    },
+    "Согласование Планово-экономическое управление": {
+      "avg_sec": 30615.39,
+      "median_sec": 4199.0,
+      "p90_sec": 67683.0
+    },
+    "Дополнительное согласование Юридическое управление": {
+      "avg_sec": 16442.82,
+      "median_sec": 4120.0,
+      "p90_sec": 21359.6
+    }
+  }
+}

@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / frontend
+node_modules/
+dist/
+
+# Local config
+.env
+
+# Runtime data
+storage/
+logs/
+backups/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
