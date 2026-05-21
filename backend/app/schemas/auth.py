@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict
 class LoginRequest(BaseModel):
     username: str
     password: str
+    use_ldap: bool = False
 
 
 class RefreshRequest(BaseModel):

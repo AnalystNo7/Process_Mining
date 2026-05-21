@@ -16,6 +16,7 @@ from app.services import auth_service
 from app.services.auth_service import (
     InvalidCredentialsError,
     InvalidRefreshTokenError,
+    LdapDisabledError,
     UserInactiveError,
 )
 
@@ -34,7 +35,7 @@ async def login(
 ) -> TokenResponse:
     try:
         user, access_token, refresh_token = await auth_service.login(
-            db, payload.username, payload.password, request
+            db, payload.username, payload.password, payload.use_ldap, request
         )
     except InvalidCredentialsError as exc:
         raise HTTPException(
@@ -43,6 +44,11 @@ async def login(
     except UserInactiveError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Учётная запись заблокирована"
+        ) from exc
+    except LdapDisabledError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="LDAP-аутентификация не настроена",
         ) from exc
 
     return TokenResponse(
