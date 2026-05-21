@@ -18,7 +18,7 @@ from app.db.repositories.event_log import PostgresEventLogRepository
 from app.domain.mining.health import health_check
 from app.domain.mining.loading import load_event_log, validate_event_log
 from app.schemas.physical_datasets import ColumnInfo, PhysicalDatasetCreate, PreviewResponse
-from app.services import audit_service
+from app.services import audit_service, role_mapping_service
 
 # Эвристика авто-сопоставления колонок файла стандартным полям.
 _SUGGEST_PATTERNS: dict[str, list[str]] = {
@@ -180,6 +180,15 @@ async def process_upload(
     report_health = health_check(df)
     dataset.health_status = report_health.status
     dataset.health_report = {"checks": [asdict(c) for c in report_health.checks]}
+
+    # Новые подразделения из датасета → в маппинг ролей как «Не размечено».
+    departments = [
+        str(d) for d in df["department"].dropna().unique().tolist() if d
+    ]
+    await role_mapping_service.ensure_departments_mapped(
+        db, dataset.project_id, departments
+    )
+
     dataset.status = "ready"
     await db.commit()
 
