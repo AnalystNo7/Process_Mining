@@ -4,6 +4,7 @@ from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decode_token
+from app.db.models.projects import Project
 from app.db.models.users import User
 from app.db.session import get_db
 
@@ -44,3 +45,20 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
             status_code=status.HTTP_403_FORBIDDEN, detail="Требуется роль администратора"
         )
     return user
+
+
+async def require_project_owner_or_admin(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Project:
+    """Допускает создателя проекта или администратора. Возвращает проект."""
+    project = await db.get(Project, project_id)
+    if project is None or project.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Проект не найден")
+    if user.role != "admin" and project.created_by != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Доступ только для владельца проекта или администратора",
+        )
+    return project

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
+from app.api.v1.projects import router as projects_router
 from app.api.v1.users import router as users_router
 from app.core.config import settings
 from app.core.logging import configure_logging
@@ -22,6 +23,7 @@ if settings.CORS_ORIGINS:
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
+app.include_router(projects_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
 
 
