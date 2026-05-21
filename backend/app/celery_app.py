@@ -6,7 +6,7 @@ celery_app = Celery(
     "process_mining",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.tasks.upload"],
+    include=["app.tasks.upload", "app.tasks.compute_stats"],
 )
 
 celery_app.conf.update(

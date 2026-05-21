@@ -1,6 +1,9 @@
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from types import SimpleNamespace
+from typing import Any
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -34,6 +37,19 @@ async def _prepare_db() -> AsyncIterator[None]:
         )
         await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
     yield
+
+
+@pytest.fixture(autouse=True)
+def _mock_celery_delay(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Заглушка постановки Celery-задач — тесты не обращаются к брокеру."""
+    from app.tasks.compute_stats import compute_virtual_dataset_stats
+    from app.tasks.upload import upload_dataset_task
+
+    def _fake_delay(*args: Any, **kwargs: Any) -> SimpleNamespace:
+        return SimpleNamespace(id="test-task-id")
+
+    monkeypatch.setattr(upload_dataset_task, "delay", _fake_delay)
+    monkeypatch.setattr(compute_virtual_dataset_stats, "delay", _fake_delay)
 
 
 @pytest_asyncio.fixture

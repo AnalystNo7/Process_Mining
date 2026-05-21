@@ -88,7 +88,10 @@ async def create_virtual_dataset(
     )
     await db.commit()
     await db.refresh(virtual)
-    # Фоновый расчёт cached_stats подключается в задаче T16.
+    # Фоновый расчёт cached_stats (задача T16).
+    from app.tasks.compute_stats import compute_virtual_dataset_stats
+
+    compute_virtual_dataset_stats.delay(virtual.id)
     return virtual
 
 
