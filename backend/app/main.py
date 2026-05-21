@@ -1,5 +1,10 @@
 from fastapi import FastAPI
 
+from app.core.config import settings
+from app.core.logging import configure_logging
+
+configure_logging(settings)
+
 app = FastAPI(title="Process Mining API", version="0.1.0")
 
 
