@@ -2,8 +2,8 @@
 # Целевая production-среда — Windows (см. Makefile и docs/05_INFRA.md).
 
 .PHONY: help install install-backend install-frontend migrate dev test lint format \
-        backup restore create-admin clean build-frontend run-backend run-celery \
-        run-frontend
+        backup restore verify-backup create-admin clean build-frontend run-backend \
+        run-celery run-frontend
 
 help:
 	@echo "Available commands:"
@@ -12,6 +12,9 @@ help:
 	@echo "  make -f Makefile.linux create-admin  - create first admin user (interactive)"
 	@echo "  make -f Makefile.linux test          - run all tests"
 	@echo "  make -f Makefile.linux lint          - run linters (ruff + mypy + eslint)"
+	@echo "  make -f Makefile.linux backup        - backup DB + uploads to backups/"
+	@echo "  make -f Makefile.linux restore BACKUP_DIR=...   - restore from a backup"
+	@echo "  make -f Makefile.linux verify-backup BACKUP_DIR=... - check backup integrity"
 
 install: install-backend install-frontend
 
@@ -57,12 +60,36 @@ format:
 	cd backend && .venv/bin/ruff format app/ tests/
 	cd frontend && npm run format
 
+# Параметры бэкапа. STORAGE_DIR — каталог хранилища (см. STORAGE_PATH в .env).
+DB_HOST ?= localhost
+DB_USER ?= pm_user
+DB_NAME ?= process_mining
+STORAGE_DIR ?= backend/storage
+BACKUP_DIR ?= backups/$(shell date +%Y-%m-%d-%H%M%S)
+
 backup:
-	@mkdir -p backups
-	pg_dump -U pm_user -h localhost -F c -b -v -f "backups/process_mining_$$(date +%Y%m%d_%H%M).dump" process_mining
+	@echo "Создаю бэкап в $(BACKUP_DIR)..."
+	@mkdir -p "$(BACKUP_DIR)/uploads"
+	pg_dump -h $(DB_HOST) -U $(DB_USER) -d $(DB_NAME) -Fc -f "$(BACKUP_DIR)/db.dump"
+	@cp -r "$(STORAGE_DIR)/." "$(BACKUP_DIR)/uploads/" 2>/dev/null || echo "(каталог хранилища пуст или отсутствует)"
+	@python scripts/write_manifest.py "$(BACKUP_DIR)"
+	@echo "Готово. Бэкап в $(BACKUP_DIR)"
 
 restore:
-	@echo "Usage: pg_restore -U pm_user -h localhost -d process_mining -c -v backups/<filename>.dump"
+	@test -f "$(BACKUP_DIR)/db.dump" || (echo "$(BACKUP_DIR)/db.dump не найден — укажите BACKUP_DIR=path"; exit 1)
+	@echo "ВНИМАНИЕ! Восстановление перезапишет БД '$(DB_NAME)' и каталог $(STORAGE_DIR)!"
+	@read -p "Продолжить? [y/N] " ans; [ "$$ans" = "y" ] || exit 1
+	psql -h $(DB_HOST) -U $(DB_USER) -d postgres -c "DROP DATABASE IF EXISTS $(DB_NAME);"
+	psql -h $(DB_HOST) -U $(DB_USER) -d postgres -c "CREATE DATABASE $(DB_NAME) OWNER $(DB_USER);"
+	pg_restore -h $(DB_HOST) -U $(DB_USER) -d $(DB_NAME) "$(BACKUP_DIR)/db.dump"
+	@rm -rf "$(STORAGE_DIR)"
+	@mkdir -p "$(STORAGE_DIR)"
+	@cp -r "$(BACKUP_DIR)/uploads/." "$(STORAGE_DIR)/" 2>/dev/null || true
+	@echo "Готово."
+
+verify-backup:
+	@test -n "$(BACKUP_DIR)" || (echo "Укажите BACKUP_DIR=path/to/backup"; exit 1)
+	@python scripts/verify_backup.py "$(BACKUP_DIR)"
 
 build-frontend:
 	cd frontend && npm run build

@@ -2,8 +2,8 @@
 # Для Linux/WSL используйте Makefile.linux: `make -f Makefile.linux <команда>`.
 
 .PHONY: help install install-backend install-frontend migrate dev test lint format \
-        backup restore create-admin clean build-frontend run-backend run-celery \
-        run-frontend
+        backup restore verify-backup create-admin clean build-frontend run-backend \
+        run-celery run-frontend
 
 help:
 	@echo "Available commands:"
@@ -13,8 +13,9 @@ help:
 	@echo "  make dev             - run all services in dev mode (backend + frontend + celery)"
 	@echo "  make test            - run all tests"
 	@echo "  make lint            - run linters (ruff + mypy + eslint)"
-	@echo "  make backup          - backup PostgreSQL database to .\backups\"
-	@echo "  make restore         - restore from latest backup"
+	@echo "  make backup          - backup DB + uploads to .\backups\"
+	@echo "  make restore BACKUP_DIR=...        - restore from a backup"
+	@echo "  make verify-backup BACKUP_DIR=...  - check backup integrity"
 
 install: install-backend install-frontend
 
@@ -60,12 +61,34 @@ format:
 	cd backend && .venv\Scripts\ruff format app\ tests\
 	cd frontend && npm run format
 
+# Параметры бэкапа. STORAGE_DIR — каталог хранилища (см. STORAGE_PATH в .env).
+DB_HOST ?= localhost
+DB_USER ?= pm_user
+DB_NAME ?= process_mining
+STORAGE_DIR ?= backend\storage
+BACKUP_DIR ?= backups\$(shell powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd-HHmmss")
+
 backup:
-	@if not exist backups mkdir backups
-	pg_dump -U pm_user -h localhost -F c -b -v -f "backups\process_mining_%date:~-4,4%%date:~-7,2%%date:~-10,2%_%time:~0,2%%time:~3,2%.dump" process_mining
+	@echo Creating backup in $(BACKUP_DIR)...
+	@if not exist "$(BACKUP_DIR)\uploads" mkdir "$(BACKUP_DIR)\uploads"
+	pg_dump -h $(DB_HOST) -U $(DB_USER) -d $(DB_NAME) -Fc -f "$(BACKUP_DIR)\db.dump"
+	@if exist "$(STORAGE_DIR)" xcopy /E /I /Q /Y "$(STORAGE_DIR)" "$(BACKUP_DIR)\uploads" >nul
+	@python scripts\write_manifest.py "$(BACKUP_DIR)"
+	@echo Backup ready: $(BACKUP_DIR)
 
 restore:
-	@echo "Usage: pg_restore -U pm_user -h localhost -d process_mining -c -v backups\<filename>.dump"
+	@if not exist "$(BACKUP_DIR)\db.dump" (echo $(BACKUP_DIR)\db.dump not found - set BACKUP_DIR=path & exit /b 1)
+	@echo WARNING: restore overwrites DB $(DB_NAME) and $(STORAGE_DIR)!
+	@powershell -NoProfile -Command "if ((Read-Host 'Continue? [y/N]') -ne 'y') { exit 1 }"
+	psql -h $(DB_HOST) -U $(DB_USER) -d postgres -c "DROP DATABASE IF EXISTS $(DB_NAME);"
+	psql -h $(DB_HOST) -U $(DB_USER) -d postgres -c "CREATE DATABASE $(DB_NAME) OWNER $(DB_USER);"
+	pg_restore -h $(DB_HOST) -U $(DB_USER) -d $(DB_NAME) "$(BACKUP_DIR)\db.dump"
+	@if exist "$(STORAGE_DIR)" rmdir /s /q "$(STORAGE_DIR)"
+	@xcopy /E /I /Q /Y "$(BACKUP_DIR)\uploads" "$(STORAGE_DIR)" >nul
+	@echo Done.
+
+verify-backup:
+	@python scripts\verify_backup.py "$(BACKUP_DIR)"
 
 build-frontend:
 	cd frontend && npm run build

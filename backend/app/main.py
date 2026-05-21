@@ -2,9 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.analytics import router as analytics_router
+from app.api.v1.annotations import router as annotations_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.dashboards import router as dashboards_router
+from app.api.v1.global_roles import router as global_roles_router
 from app.api.v1.physical_datasets import router as physical_datasets_router
 from app.api.v1.projects import router as projects_router
 from app.api.v1.role_mappings import router as role_mappings_router
@@ -38,9 +40,11 @@ app.include_router(sla_router, prefix="/api/v1")
 app.include_router(virtual_datasets_router, prefix="/api/v1")
 app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(dashboards_router, prefix="/api/v1")
+app.include_router(annotations_router, prefix="/api/v1")
 app.include_router(slices_router, prefix="/api/v1")
 app.include_router(tasks_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
+app.include_router(global_roles_router, prefix="/api/v1")
 
 
 @app.get("/")

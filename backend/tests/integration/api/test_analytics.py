@@ -142,6 +142,22 @@ async def test_monthly_dynamics(client, analyst_user, db_session, tmp_path) -> N
     assert sum(row["n_events"] for row in items) == 60
 
 
+async def test_bpmn_export(client, analyst_user, db_session, tmp_path) -> None:
+    project_id, vd_id = await _setup_vd(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/bpmn",
+        headers=analyst_user.headers,
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("application/bpmn+xml")
+    assert "attachment" in resp.headers["content-disposition"]
+    body = resp.text
+    assert "bpmn:definitions" in body
+    assert "Согласование" in body  # узел из тестовых данных
+
+
 async def test_resources(client, analyst_user, db_session, tmp_path) -> None:
     project_id, vd_id = await _setup_vd(
         client, analyst_user.headers, db_session, analyst_user.id, tmp_path

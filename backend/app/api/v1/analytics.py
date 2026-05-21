@@ -1,13 +1,15 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.exceptions import EntityNotFoundError
 from app.db.models.datasets import VirtualDataset
+from app.db.models.projects import Project
 from app.db.models.users import User
 from app.db.session import get_db
+from app.domain.mining.bpmn_export import dfg_to_bpmn
 from app.domain.mining.dynamics import compute_monthly_dynamics
 from app.domain.mining.graph import build_dfg, filter_dfg
 from app.domain.mining.resources import compute_resource_workload
@@ -161,6 +163,33 @@ async def dfg(
         ],
         start_activities=graph.start_activities,
         end_activities=graph.end_activities,
+    )
+
+
+@router.get("/bpmn")
+async def export_bpmn(
+    project_id: int,
+    vd_id: int,
+    activity_level: ActivityLevel = "raw",
+    min_edge_frequency_pct: float = Query(default=0.0, ge=0, le=100),
+    filters: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> Response:
+    """Экспортирует текущий DFG-граф в BPMN 2.0 XML-файл."""
+    virtual = await _get_vd(db, project_id, vd_id)
+    df = await analytics_service.load_vd_dataframe(
+        db, virtual, analytics_service.filter_from_query(filters)
+    )
+    column = analytics_service.activity_column(activity_level)
+    graph = filter_dfg(build_dfg(df, column), min_edge_frequency_pct)
+    project = await db.get(Project, virtual.project_id)
+    process_name = project.name if project is not None else virtual.name
+    xml = dfg_to_bpmn(graph, process_name=process_name)
+    return Response(
+        content=xml,
+        media_type="application/bpmn+xml",
+        headers={"Content-Disposition": f'attachment; filename="dfg_{vd_id}.bpmn"'},
     )
 
 
