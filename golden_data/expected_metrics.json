@@ -85,8 +85,8 @@
     }
   ],
   "process_metrics": {
-    "unique_traces": 1193,
-    "variability_pct": 89.83,
+    "unique_traces": 1194,
+    "variability_pct": 89.91,
     "mean_occurrence_pct": 3.04
   },
   "events_per_case_distribution": {
