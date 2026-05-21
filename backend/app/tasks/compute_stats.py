@@ -9,6 +9,7 @@ from app.db.models.datasets import VirtualDataset
 from app.db.repositories.event_log import PostgresEventLogRepository
 from app.db.session import AsyncSessionLocal
 from app.domain.mining.duration import compute_case_duration
+from app.domain.mining.filters import apply_filter, parse_filters
 from app.domain.mining.rework import compute_duration_comparison, compute_global_rework_pct
 from app.domain.mining.role_mapping import apply_role_mapping
 from app.domain.mining.variants import (
@@ -65,6 +66,11 @@ async def compute_and_store_stats(db: Any, vd_id: int) -> None:
     repo = PostgresEventLogRepository(db)
     df = await repo.load_to_dataframe(virtual.physical_dataset_id)
     df = apply_role_mapping(df, virtual.role_mapping_snapshot.get("mapping", {}))
+
+    config_filters = virtual.config.get("filters")
+    if config_filters:
+        df = apply_filter(df, parse_filters(config_filters))
+
     virtual.cached_stats = build_stats(df)
     await db.commit()
 

@@ -48,11 +48,14 @@ async def rework_table(
     vd_id: int,
     activity_level: ActivityLevel = "raw",
     limit: int = Query(default=50, ge=1, le=1000),
+    filters: str | None = None,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> ReworkTableResponse:
     virtual = await _get_vd(db, project_id, vd_id)
-    df = await analytics_service.load_vd_dataframe(db, virtual)
+    df = await analytics_service.load_vd_dataframe(
+        db, virtual, analytics_service.filter_from_query(filters)
+    )
     column = analytics_service.activity_column(activity_level)
     rework_df = compute_rework_per_operation(df, column)
     items = [
@@ -66,8 +69,8 @@ async def rework_table(
     ]
     return ReworkTableResponse(
         items=items,
-        total_operations=int(rework_df["total"].sum()),
-        total_repeats=int(rework_df["repeats"].sum()),
+        total_operations=int(rework_df["total"].sum()) if len(rework_df) else 0,
+        total_repeats=int(rework_df["repeats"].sum()) if len(rework_df) else 0,
         global_rework_pct=compute_global_rework_pct(df, column),
     )
 
@@ -78,11 +81,14 @@ async def top_paths(
     vd_id: int,
     n: int = Query(default=5, ge=1, le=50),
     activity_level: ActivityLevel = "raw",
+    filters: str | None = None,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> TopPathsResponse:
     virtual = await _get_vd(db, project_id, vd_id)
-    df = await analytics_service.load_vd_dataframe(db, virtual)
+    df = await analytics_service.load_vd_dataframe(
+        db, virtual, analytics_service.filter_from_query(filters)
+    )
     column = analytics_service.activity_column(activity_level)
     variants_df = get_top_n_variants(df, n=n, activity_col=column)
     coverage = get_variants_coverage(df, n=n, activity_col=column)
@@ -110,11 +116,14 @@ async def dfg(
     vd_id: int,
     activity_level: ActivityLevel = "raw",
     min_edge_frequency_pct: float = Query(default=0.0, ge=0, le=100),
+    filters: str | None = None,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> DFGResponse:
     virtual = await _get_vd(db, project_id, vd_id)
-    df = await analytics_service.load_vd_dataframe(db, virtual)
+    df = await analytics_service.load_vd_dataframe(
+        db, virtual, analytics_service.filter_from_query(filters)
+    )
     column = analytics_service.activity_column(activity_level)
     graph = filter_dfg(build_dfg(df, column), min_edge_frequency_pct)
     return DFGResponse(
@@ -151,11 +160,14 @@ async def monthly_dynamics(
     project_id: int,
     vd_id: int,
     activity: str | None = None,
+    filters: str | None = None,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> MonthlyDynamicsResponse:
     virtual = await _get_vd(db, project_id, vd_id)
-    df = await analytics_service.load_vd_dataframe(db, virtual)
+    df = await analytics_service.load_vd_dataframe(
+        db, virtual, analytics_service.filter_from_query(filters)
+    )
     dynamics_df = compute_monthly_dynamics(df, activity_filter=activity)
     return MonthlyDynamicsResponse(
         items=[
@@ -175,11 +187,14 @@ async def resources(
     project_id: int,
     vd_id: int,
     limit: int = Query(default=50, ge=1, le=1000),
+    filters: str | None = None,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> ResourceListResponse:
     virtual = await _get_vd(db, project_id, vd_id)
-    df = await analytics_service.load_vd_dataframe(db, virtual)
+    df = await analytics_service.load_vd_dataframe(
+        db, virtual, analytics_service.filter_from_query(filters)
+    )
     workload = compute_resource_workload(df)
     return ResourceListResponse(
         items=[
