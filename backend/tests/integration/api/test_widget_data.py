@@ -137,16 +137,70 @@ async def test_bar_chart_widget_data(client, analyst_user, db_session, tmp_path)
     assert {point["x"] for point in resp.json()["data"]} == {"Отдел0", "Отдел1"}
 
 
-async def test_unsupported_widget_returns_422(
+async def test_rework_table_widget_data(
     client, analyst_user, db_session, tmp_path
 ) -> None:
     _, widgets = await _setup(
         client, analyst_user.headers, db_session, analyst_user.id, tmp_path
     )
-    # rework_table пока не реализован (виджет-таблицы — T28).
     widget = next(w for w in widgets if w["widget_type"] == "rework_table")
     resp = await client.get(
         f"/api/v1/widgets/{widget['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    rows = resp.json()["rows"]
+    soglasovanie = next(r for r in rows if r["activity"] == "Согласование")
+    assert soglasovanie["repeats"] == 15
+
+
+async def test_top_paths_graph_widget_data(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    _, widgets = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    widget = next(w for w in widgets if w["widget_type"] == "top_paths_graph")
+    resp = await client.get(
+        f"/api/v1/widgets/{widget['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    assert resp.json()["coverage"]["total_cases"] == 15
+
+
+async def test_process_graph_widget_data(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    dashboard_id, _ = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    widget = await client.post(
+        f"/api/v1/dashboards/{dashboard_id}/widgets",
+        headers=analyst_user.headers,
+        json={"widget_type": "process_graph", "title": "Граф", "config": {}},
+    )
+    resp = await client.get(
+        f"/api/v1/widgets/{widget.json()['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    assert {n["data"]["id"] for n in resp.json()["nodes"]} == {
+        "Старт", "Согласование", "Конец"
+    }
+
+
+async def test_unsupported_widget_returns_422(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    dashboard_id, _ = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    # sla_compliance_table реализуется в T35.
+    widget = await client.post(
+        f"/api/v1/dashboards/{dashboard_id}/widgets",
+        headers=analyst_user.headers,
+        json={"widget_type": "sla_compliance_table", "title": "SLA", "config": {}},
+    )
+    resp = await client.get(
+        f"/api/v1/widgets/{widget.json()['id']}/data", headers=analyst_user.headers
     )
     assert resp.status_code == 422
 

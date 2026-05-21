@@ -7,9 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessRuleError, EntityNotFoundError
 from app.db.models.dashboards import Dashboard, DashboardWidget
-from app.db.models.datasets import VirtualDataset
+from app.db.models.datasets import NamedSlice, VirtualDataset
 from app.domain.mining.dynamics import compute_monthly_dynamics
 from app.domain.mining.filters import parse_filters
+from app.domain.mining.graph import build_dfg, filter_dfg
+from app.domain.mining.resources import compute_resource_workload
+from app.domain.mining.rework import compute_global_rework_pct, compute_rework_per_operation
+from app.domain.mining.variants import get_top_n_variants, get_variants_coverage
 from app.domain.types import EventFilter
 from app.services import analytics_service
 from app.tasks.compute_stats import build_stats
@@ -36,11 +40,18 @@ def format_value(value: Any, fmt: str) -> str:
     return str(value)
 
 
-def _resolve_filter(
-    widget: DashboardWidget, dashboard: Dashboard
+async def _resolve_filter(
+    db: AsyncSession, widget: DashboardWidget, dashboard: Dashboard
 ) -> EventFilter | None:
-    raw = dashboard.global_filters if widget.use_global_filters else widget.local_filters
-    return parse_filters(raw) if raw else None
+    """Эффективный фильтр виджета: локальный, либо глобальный дашборда,
+    либо применённый именованный срез."""
+    if not widget.use_global_filters:
+        return parse_filters(widget.local_filters) if widget.local_filters else None
+    if dashboard.applied_slice_id is not None:
+        applied = await db.get(NamedSlice, dashboard.applied_slice_id)
+        if applied is not None:
+            return parse_filters(applied.filters)
+    return parse_filters(dashboard.global_filters) if dashboard.global_filters else None
 
 
 def _month_column(df: pd.DataFrame) -> pd.Series:
@@ -54,9 +65,7 @@ def _month_column(df: pd.DataFrame) -> pd.Series:
 
 
 async def _kpi_card(
-    db: AsyncSession,
-    virtual: VirtualDataset,
-    config: dict[str, Any],
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
     event_filter: EventFilter | None,
 ) -> dict[str, Any]:
     metric = config.get("metric", "total_cases")
@@ -71,9 +80,7 @@ async def _kpi_card(
 
 
 async def _monthly_dynamics(
-    db: AsyncSession,
-    virtual: VirtualDataset,
-    config: dict[str, Any],
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
     event_filter: EventFilter | None,
 ) -> dict[str, Any]:
     df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
@@ -101,9 +108,7 @@ _BAR_SOURCES = {
 
 
 async def _bar_or_line_chart(
-    db: AsyncSession,
-    virtual: VirtualDataset,
-    config: dict[str, Any],
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
     event_filter: EventFilter | None,
 ) -> dict[str, Any]:
     df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
@@ -112,11 +117,14 @@ async def _bar_or_line_chart(
 
     if source == "monthly_dynamics":
         result = compute_monthly_dynamics(df)
-        data = [
-            {"x": str(row["month"]), "y": int(row["n_events"])}
-            for _, row in result.iterrows()
-        ]
-        return {"data": data, "x_label": "Месяц", "y_label": "Количество операций"}
+        return {
+            "data": [
+                {"x": str(row["month"]), "y": int(row["n_events"])}
+                for _, row in result.iterrows()
+            ],
+            "x_label": "Месяц",
+            "y_label": "Количество операций",
+        }
 
     column = _BAR_SOURCES.get(source)
     if column is None or column not in df.columns:
@@ -136,9 +144,7 @@ async def _bar_or_line_chart(
 
 
 async def _heatmap(
-    db: AsyncSession,
-    virtual: VirtualDataset,
-    config: dict[str, Any],
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
     event_filter: EventFilter | None,
 ) -> dict[str, Any]:
     df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
@@ -158,12 +164,121 @@ async def _heatmap(
     }
 
 
+async def _rework_table(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    column = analytics_service.activity_column(config.get("activity_level", "raw"))
+    limit = int(config.get("limit", 25))
+    rework_df = compute_rework_per_operation(df, column)
+    return {
+        "rows": [
+            {
+                "activity": str(row["activity"]),
+                "total": int(row["total"]),
+                "repeats": int(row["repeats"]),
+                "rework_pct": float(row["rework_pct"]),
+            }
+            for _, row in rework_df.head(limit).iterrows()
+        ],
+        "global_rework_pct": compute_global_rework_pct(df, column),
+    }
+
+
+async def _resource_analysis_table(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    limit = int(config.get("limit", 30))
+    workload = compute_resource_workload(df)
+    return {
+        "rows": [
+            {
+                "resource": str(row["resource"]),
+                "n_cases": int(row["n_cases"]),
+                "n_events": int(row["n_events"]),
+                "avg_own_duration_seconds": float(row["avg_own_duration_seconds"]),
+                "n_unique_activities": int(row["n_unique_activities"]),
+            }
+            for _, row in workload.head(limit).iterrows()
+        ]
+    }
+
+
+def _dfg_to_cytoscape(df: pd.DataFrame, column: str, min_edge_pct: float) -> dict[str, Any]:
+    graph = filter_dfg(build_dfg(df, column), min_edge_pct)
+    return {
+        "nodes": [
+            {
+                "data": {
+                    "id": node.activity,
+                    "label": node.activity,
+                    "count": node.count,
+                    "avg_duration_sec": node.avg_own_duration_seconds,
+                }
+            }
+            for node in graph.nodes
+        ],
+        "edges": [
+            {
+                "data": {
+                    "id": f"{edge.from_activity}->{edge.to_activity}",
+                    "source": edge.from_activity,
+                    "target": edge.to_activity,
+                    "count": edge.count,
+                    "avg_duration_sec": edge.avg_duration_seconds,
+                }
+            }
+            for edge in graph.edges
+        ],
+        "start_activities": graph.start_activities,
+        "end_activities": graph.end_activities,
+    }
+
+
+async def _process_graph(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    column = analytics_service.activity_column(config.get("activity_level", "raw"))
+    return _dfg_to_cytoscape(df, column, float(config.get("min_edge_frequency_pct", 0.0)))
+
+
+async def _top_paths_graph(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    column = analytics_service.activity_column(config.get("activity_level", "raw"))
+    n_paths = int(config.get("n_paths", 5))
+    variants_df = get_top_n_variants(df, n=n_paths, activity_col=column)
+    coverage = get_variants_coverage(df, n=n_paths, activity_col=column)
+    return {
+        "variants": [
+            {
+                "trace": list(row["trace"]),
+                "n_cases": int(row["n_cases"]),
+                "avg_duration_seconds": float(row["avg_duration_seconds"]),
+            }
+            for _, row in variants_df.iterrows()
+        ],
+        "coverage": coverage,
+    }
+
+
 _HANDLERS = {
     "kpi_card": _kpi_card,
     "monthly_dynamics": _monthly_dynamics,
     "bar_chart": _bar_or_line_chart,
     "line_chart": _bar_or_line_chart,
     "heatmap": _heatmap,
+    "rework_table": _rework_table,
+    "resource_analysis_table": _resource_analysis_table,
+    "process_graph": _process_graph,
+    "top_paths_graph": _top_paths_graph,
 }
 
 
@@ -181,5 +296,5 @@ async def compute_widget_data(db: AsyncSession, widget: DashboardWidget) -> dict
         raise BusinessRuleError(
             f"Виджет типа {widget.widget_type!r} пока не поддерживается"
         )
-    event_filter = _resolve_filter(widget, dashboard)
+    event_filter = await _resolve_filter(db, widget, dashboard)
     return await handler(db, virtual, widget.config, event_filter)
