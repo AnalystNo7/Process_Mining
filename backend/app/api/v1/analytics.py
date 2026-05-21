@@ -25,7 +25,13 @@ from app.schemas.analytics import (
     TopPathsResponse,
     VariantRow,
 )
-from app.services import analytics_service, virtual_dataset_service
+from app.schemas.cases import (
+    CaseDetailResponse,
+    CaseEvent,
+    CaseListResponse,
+    CaseSummary,
+)
+from app.services import analytics_service, case_service, virtual_dataset_service
 
 router = APIRouter(
     prefix="/projects/{project_id}/virtual-datasets/{vd_id}/analytics",
@@ -179,6 +185,53 @@ async def monthly_dynamics(
             )
             for _, row in dynamics_df.iterrows()
         ]
+    )
+
+
+@router.get("/cases", response_model=CaseListResponse)
+async def list_cases(
+    project_id: int,
+    vd_id: int,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    filters: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> CaseListResponse:
+    virtual = await _get_vd(db, project_id, vd_id)
+    df = await analytics_service.load_vd_dataframe(
+        db, virtual, analytics_service.filter_from_query(filters)
+    )
+    rows, total = case_service.list_cases(df, page=page, page_size=page_size)
+    return CaseListResponse(
+        items=[CaseSummary(**row) for row in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/case/{case_id}", response_model=CaseDetailResponse)
+async def get_case(
+    project_id: int,
+    vd_id: int,
+    case_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> CaseDetailResponse:
+    virtual = await _get_vd(db, project_id, vd_id)
+    df = await analytics_service.load_vd_dataframe(db, virtual)
+    try:
+        detail = case_service.case_detail(df, case_id)
+    except EntityNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    return CaseDetailResponse(
+        case_id=detail["case_id"],
+        attributes=detail["attributes"],
+        events=[CaseEvent(**event) for event in detail["events"]],
+        total_duration_seconds=detail["total_duration_seconds"],
+        has_rework=detail["has_rework"],
+        n_events=detail["n_events"],
     )
 
 
