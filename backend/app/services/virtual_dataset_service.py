@@ -17,7 +17,7 @@ from app.schemas.virtual_datasets import (
     RoleBreakdownResponse,
     VirtualDatasetCreate,
 )
-from app.services import audit_service, role_mapping_service
+from app.services import audit_service, dashboard_service, role_mapping_service
 
 
 async def _sla_snapshot(db: AsyncSession, project_id: int) -> list[dict[str, Any]]:
@@ -82,9 +82,12 @@ async def create_virtual_dataset(
         is_personal=True,
     )
     db.add(virtual)
+    await db.flush()
+    # Дашборд «Обзор процесса» с предустановленными виджетами (T25).
+    await dashboard_service.create_default_dashboard(db, virtual, actor)
     await audit_service.log_event(
-        db, actor, "virtual_dataset.create", "virtual_dataset", None, request=request,
-        metadata={"name": virtual.name},
+        db, actor, "virtual_dataset.create", "virtual_dataset", virtual.id,
+        request=request, metadata={"name": virtual.name},
     )
     await db.commit()
     await db.refresh(virtual)
