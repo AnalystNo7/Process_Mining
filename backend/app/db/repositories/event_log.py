@@ -22,6 +22,15 @@ _INSERT_BATCH = 5000
 _STREAM_CHUNK = 10000
 
 
+def _na_to_none(value: Any) -> Any:
+    """Приводит pandas-пропуски (NaN/NA) к Python None для драйвера БД."""
+    if value is None or value is pd.NA:
+        return None
+    if isinstance(value, float) and pd.isna(value):
+        return None
+    return value
+
+
 class PostgresEventLogRepository:
     """Реализация EventLogRepository поверх PostgreSQL (SQLAlchemy + asyncpg)."""
 
@@ -74,8 +83,8 @@ class PostgresEventLogRepository:
                 "activity": str(row["activity"]),
                 "timestamp_start": row["timestamp_start"],
                 "timestamp_end": row["timestamp_end"],
-                "resource": row.get("resource"),
-                "department": row.get("department"),
+                "resource": _na_to_none(row.get("resource")),
+                "department": _na_to_none(row.get("department")),
                 "attributes": row.get("attributes") or {},
             }
             for row in df.to_dict(orient="records")

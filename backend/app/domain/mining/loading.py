@@ -62,7 +62,11 @@ def load_event_log(file_path: Path | str, column_mapping: dict[str, Any]) -> pd.
     for opt in ["resource", "department"]:
         src = column_mapping.get(opt)
         if src and src in raw.columns:
-            result[opt] = raw[src].astype(str).where(raw[src].notna(), None)
+            # Явный list comp: пропущенные значения → Python None
+            # (astype(str) в pandas 3.0 может оставлять NaN как float).
+            result[opt] = [
+                str(value) if pd.notna(value) else None for value in raw[src]
+            ]
         else:
             result[opt] = None
 
