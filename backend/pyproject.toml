@@ -53,7 +53,7 @@ plugins = ["pydantic.mypy"]
 
 # Сторонние библиотеки без type-stubs.
 [[tool.mypy.overrides]]
-module = ["jose.*", "pm4py.*", "workalendar.*", "ldap3.*"]
+module = ["jose.*", "pm4py.*", "workalendar.*", "ldap3.*", "pandas.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

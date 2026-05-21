@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_token
 from app.db.models.projects import Project
 from app.db.models.users import User
+from app.db.repositories.event_log import PostgresEventLogRepository
 from app.db.session import get_db
+from app.domain.repository.event_log import EventLogRepository
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -62,3 +64,10 @@ async def require_project_owner_or_admin(
             detail="Доступ только для владельца проекта или администратора",
         )
     return project
+
+
+def get_event_log_repository(
+    db: AsyncSession = Depends(get_db),
+) -> EventLogRepository:
+    """DI-провайдер репозитория журнала событий."""
+    return PostgresEventLogRepository(db)
