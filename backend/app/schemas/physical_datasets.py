@@ -62,3 +62,15 @@ class TaskStatusResponse(BaseModel):
     status: str
     result: Any | None = None
     error: str | None = None
+
+
+class HealthCheckItem(BaseModel):
+    name: str
+    severity: str
+    message: str
+    value: Any
+
+
+class HealthReportResponse(BaseModel):
+    status: str
+    checks: list[HealthCheckItem]

@@ -234,6 +234,25 @@ async def test_delete_dataset(client, analyst_user, db_session) -> None:
     assert "physical_dataset.delete" in actions
 
 
+async def test_get_dataset_health(client, analyst_user, db_session, tmp_path) -> None:
+    project_id = await _create_project(client, analyst_user.headers)
+    dataset = await _make_dataset(
+        db_session, project_id, analyst_user.id, _SMALL_MAPPING
+    )
+    path = tmp_path / "health.xlsx"
+    path.write_bytes(_xlsx_bytes(_small_rows(60)))
+    await process_upload(db_session, dataset, path)
+
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/physical-datasets/{dataset.id}/health",
+        headers=analyst_user.headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] in {"good", "warning", "poor"}
+    assert len(data["checks"]) == 5
+
+
 async def test_get_task_status(
     client, analyst_user, monkeypatch: pytest.MonkeyPatch
 ) -> None:

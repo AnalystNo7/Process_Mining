@@ -7,6 +7,8 @@ from app.db.models.projects import Project
 from app.db.models.users import User
 from app.db.session import get_db
 from app.schemas.physical_datasets import (
+    HealthCheckItem,
+    HealthReportResponse,
     PhysicalDatasetCreate,
     PhysicalDatasetList,
     PhysicalDatasetResponse,
@@ -75,6 +77,26 @@ async def get_dataset(
     except EntityNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     return PhysicalDatasetResponse.model_validate(dataset)
+
+
+@router.get("/{dataset_id}/health", response_model=HealthReportResponse)
+async def get_dataset_health(
+    project_id: int,
+    dataset_id: int,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> HealthReportResponse:
+    try:
+        dataset = await physical_dataset_service.get_physical_dataset(
+            db, project_id, dataset_id
+        )
+    except EntityNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    checks = dataset.health_report.get("checks", [])
+    return HealthReportResponse(
+        status=dataset.health_status,
+        checks=[HealthCheckItem(**check) for check in checks],
+    )
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
