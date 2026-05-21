@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.v1.auth import router as auth_router
+from app.api.v1.users import router as users_router
 from app.core.config import settings
 from app.core.logging import configure_logging
 
@@ -9,6 +10,7 @@ configure_logging(settings)
 app = FastAPI(title="Process Mining API", version="0.1.0")
 
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(users_router, prefix="/api/v1")
 
 
 @app.get("/")

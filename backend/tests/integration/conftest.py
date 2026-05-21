@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -8,7 +9,9 @@ from sqlalchemy.pool import NullPool
 
 import app.db.models  # noqa: F401 — регистрирует модели в Base.metadata
 from app.core.config import settings
+from app.core.security import create_access_token, hash_password
 from app.db.base import Base
+from app.db.models.users import User
 from app.db.session import get_db
 from app.main import app
 
@@ -53,3 +56,46 @@ async def client() -> AsyncIterator[AsyncClient]:
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+@dataclass
+class AuthedUser:
+    """Созданный в БД пользователь с готовым access-токеном."""
+
+    id: int
+    username: str
+    role: str
+    token: str
+    headers: dict[str, str]
+
+
+async def _make_authed_user(session: AsyncSession, username: str, role: str) -> AuthedUser:
+    user = User(
+        username=username,
+        full_name=username.capitalize(),
+        email=f"{username}@example.com",
+        password_hash=hash_password("password123"),
+        role=role,
+        is_active=True,
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    token = create_access_token(user.id, {"role": role})
+    return AuthedUser(
+        id=user.id,
+        username=username,
+        role=role,
+        token=token,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
+@pytest_asyncio.fixture
+async def admin_user(db_session: AsyncSession) -> AuthedUser:
+    return await _make_authed_user(db_session, "admin", "admin")
+
+
+@pytest_asyncio.fixture
+async def analyst_user(db_session: AsyncSession) -> AuthedUser:
+    return await _make_authed_user(db_session, "analyst", "analyst")
