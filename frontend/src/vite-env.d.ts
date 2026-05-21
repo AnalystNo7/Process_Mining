@@ -8,3 +8,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+// Дистрибутив Plotly без собственных типов — используется через react-plotly.js/factory.
+declare module 'plotly.js-dist-min';

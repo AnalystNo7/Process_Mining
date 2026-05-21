@@ -13,6 +13,7 @@ import {
   type TableColumnsType,
 } from 'antd';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { listDatasets } from '@/api/physicalDatasets';
 import {
@@ -66,7 +67,13 @@ export function VirtualDatasetsTab({ projectId }: { projectId: number }) {
   });
 
   const columns: TableColumnsType<VirtualDatasetBrief> = [
-    { title: 'Название', dataIndex: 'name', key: 'name' },
+    {
+      title: 'Название',
+      key: 'name',
+      render: (_, vd) => (
+        <Link to={`/projects/${projectId}/virtual-datasets/${vd.id}`}>{vd.name}</Link>
+      ),
+    },
     {
       title: 'Физический датасет',
       key: 'physical',
