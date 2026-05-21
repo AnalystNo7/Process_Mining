@@ -11,6 +11,8 @@ _MAPPING = {
     "activity": "op",
     "timestamp_start": "t_start",
     "timestamp_end": "t_end",
+    "resource": "user",
+    "department": "dept",
 }
 _BASE = datetime(2025, 1, 1, 9, 0)
 
@@ -26,6 +28,8 @@ def _xlsx_with_rework(n_cases: int = 15) -> bytes:
                     "op": activity,
                     "t_start": _BASE + timedelta(days=case, hours=i),
                     "t_end": _BASE + timedelta(days=case, hours=i, minutes=30),
+                    "user": f"User{case % 4}",
+                    "dept": "Отдел",
                 }
             )
     buf = io.BytesIO()
@@ -104,3 +108,48 @@ async def test_top_paths(client, analyst_user, db_session, tmp_path) -> None:
     assert data["total_variants"] == 1
     assert data["variants"][0]["n_cases"] == 15
     assert data["variants"][0]["trace"] == ["Старт", "Согласование", "Согласование", "Конец"]
+
+
+async def test_dfg(client, analyst_user, db_session, tmp_path) -> None:
+    project_id, vd_id = await _setup_vd(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/dfg",
+        headers=analyst_user.headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    node_ids = {n["data"]["id"] for n in data["nodes"]}
+    assert node_ids == {"Старт", "Согласование", "Конец"}
+    edges = {(e["data"]["source"], e["data"]["target"]) for e in data["edges"]}
+    assert ("Старт", "Согласование") in edges
+    assert ("Согласование", "Согласование") in edges  # self-loop (повтор)
+    assert data["start_activities"] == {"Старт": 15}
+
+
+async def test_monthly_dynamics(client, analyst_user, db_session, tmp_path) -> None:
+    project_id, vd_id = await _setup_vd(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/monthly-dynamics",
+        headers=analyst_user.headers,
+    )
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert len(items) >= 1
+    assert sum(row["n_events"] for row in items) == 60
+
+
+async def test_resources(client, analyst_user, db_session, tmp_path) -> None:
+    project_id, vd_id = await _setup_vd(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/resources",
+        headers=analyst_user.headers,
+    )
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert {r["resource"] for r in items} == {"User0", "User1", "User2", "User3"}
