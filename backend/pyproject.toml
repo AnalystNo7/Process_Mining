@@ -50,6 +50,11 @@ strict = true
 python_version = "3.11"
 plugins = ["pydantic.mypy"]
 
+# Сторонние библиотеки без type-stubs.
+[[tool.mypy.overrides]]
+module = ["jose.*", "pm4py.*", "workalendar.*", "ldap3.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
