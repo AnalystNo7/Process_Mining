@@ -38,6 +38,11 @@ export async function listProjects(params?: {
   return data;
 }
 
+export async function getProject(id: number): Promise<Project> {
+  const { data } = await apiClient.get<Project>(`/projects/${id}`);
+  return data;
+}
+
 export async function createProject(payload: ProjectPayload): Promise<Project> {
   const { data } = await apiClient.post<Project>('/projects', payload);
   return data;

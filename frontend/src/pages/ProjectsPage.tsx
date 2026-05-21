@@ -13,6 +13,7 @@ import {
   type TableColumnsType,
 } from 'antd';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import {
   createProject,
@@ -80,7 +81,13 @@ export function ProjectsPage() {
     currentUser?.role === 'admin' || project.created_by.id === currentUser?.id;
 
   const columns: TableColumnsType<Project> = [
-    { title: 'Название', dataIndex: 'name', key: 'name' },
+    {
+      title: 'Название',
+      key: 'name',
+      render: (_, project) => (
+        <Link to={`/projects/${project.id}`}>{project.name}</Link>
+      ),
+    },
     {
       title: 'Описание',
       dataIndex: 'description',

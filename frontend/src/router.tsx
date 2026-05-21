@@ -8,6 +8,7 @@ import { AuditLogPage } from '@/pages/AuditLogPage';
 import { GlobalRolesPage } from '@/pages/GlobalRolesPage';
 import { MePage } from '@/pages/MePage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { ProjectDetailPage } from '@/pages/ProjectDetailPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
 
 export function AppRouter() {
@@ -18,6 +19,7 @@ export function AppRouter() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/projects" replace />} />
           <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/me" element={<MePage />} />
           <Route element={<ProtectedRoute adminOnly />}>
             <Route path="/admin/users" element={<AdminUsersPage />} />
