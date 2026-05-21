@@ -193,11 +193,10 @@ async def test_unsupported_widget_returns_422(
     dashboard_id, _ = await _setup(
         client, analyst_user.headers, db_session, analyst_user.id, tmp_path
     )
-    # sla_compliance_table реализуется в T35.
     widget = await client.post(
         f"/api/v1/dashboards/{dashboard_id}/widgets",
         headers=analyst_user.headers,
-        json={"widget_type": "sla_compliance_table", "title": "SLA", "config": {}},
+        json={"widget_type": "unknown_widget_xyz", "title": "?", "config": {}},
     )
     resp = await client.get(
         f"/api/v1/widgets/{widget.json()['id']}/data", headers=analyst_user.headers

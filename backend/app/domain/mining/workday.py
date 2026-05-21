@@ -20,9 +20,15 @@ class WorkdayCalculator:
     def __init__(self) -> None:
         self.cal: Any = Russia()
         self.tz = _MSK
+        # Кэш проверки рабочего дня — расчёт SLA перебирает много дат.
+        self._working_day_cache: dict[date, bool] = {}
 
     def is_working_day(self, day: date) -> bool:
-        return bool(self.cal.is_working_day(day))
+        cached = self._working_day_cache.get(day)
+        if cached is None:
+            cached = bool(self.cal.is_working_day(day))
+            self._working_day_cache[day] = cached
+        return cached
 
     def _to_msk(self, value: datetime) -> datetime:
         if value.tzinfo is None:

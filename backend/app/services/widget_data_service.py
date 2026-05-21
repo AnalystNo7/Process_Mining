@@ -13,7 +13,9 @@ from app.domain.mining.filters import parse_filters
 from app.domain.mining.graph import build_dfg, filter_dfg
 from app.domain.mining.resources import compute_resource_workload
 from app.domain.mining.rework import compute_global_rework_pct, compute_rework_per_operation
+from app.domain.mining.sla import aggregate_sla_compliance, evaluate_sla
 from app.domain.mining.variants import get_top_n_variants, get_variants_coverage
+from app.domain.mining.workday import WorkdayCalculator
 from app.domain.types import EventFilter
 from app.services import analytics_service
 from app.tasks.compute_stats import build_stats
@@ -269,6 +271,19 @@ async def _top_paths_graph(
     }
 
 
+async def _sla_compliance_table(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    evaluated = evaluate_sla(df, virtual.sla_rules_snapshot, WorkdayCalculator())
+    result = aggregate_sla_compliance(evaluated)
+    rows = result["rows"]
+    if config.get("show_only_operations_with_rules"):
+        rows = [row for row in rows if row["events_with_sla"] > 0]
+    return {"rows": rows, "overall_compliance_pct": result["overall_compliance_pct"]}
+
+
 _HANDLERS = {
     "kpi_card": _kpi_card,
     "monthly_dynamics": _monthly_dynamics,
@@ -279,6 +294,7 @@ _HANDLERS = {
     "resource_analysis_table": _resource_analysis_table,
     "process_graph": _process_graph,
     "top_paths_graph": _top_paths_graph,
+    "sla_compliance_table": _sla_compliance_table,
 }
 
 

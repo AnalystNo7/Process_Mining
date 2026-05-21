@@ -12,7 +12,9 @@ from app.domain.mining.dynamics import compute_monthly_dynamics
 from app.domain.mining.graph import build_dfg, filter_dfg
 from app.domain.mining.resources import compute_resource_workload
 from app.domain.mining.rework import compute_global_rework_pct, compute_rework_per_operation
+from app.domain.mining.sla import aggregate_sla_compliance, evaluate_sla
 from app.domain.mining.variants import get_top_n_variants, get_variants_coverage
+from app.domain.mining.workday import WorkdayCalculator
 from app.schemas.analytics import (
     CytoscapeElement,
     DFGResponse,
@@ -31,6 +33,7 @@ from app.schemas.cases import (
     CaseListResponse,
     CaseSummary,
 )
+from app.schemas.sla import SLAComplianceResponse, SLAComplianceRow
 from app.services import analytics_service, case_service, virtual_dataset_service
 
 router = APIRouter(
@@ -232,6 +235,26 @@ async def get_case(
         total_duration_seconds=detail["total_duration_seconds"],
         has_rework=detail["has_rework"],
         n_events=detail["n_events"],
+    )
+
+
+@router.get("/sla-compliance", response_model=SLAComplianceResponse)
+async def sla_compliance(
+    project_id: int,
+    vd_id: int,
+    filters: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> SLAComplianceResponse:
+    virtual = await _get_vd(db, project_id, vd_id)
+    df = await analytics_service.load_vd_dataframe(
+        db, virtual, analytics_service.filter_from_query(filters)
+    )
+    evaluated = evaluate_sla(df, virtual.sla_rules_snapshot, WorkdayCalculator())
+    result = aggregate_sla_compliance(evaluated)
+    return SLAComplianceResponse(
+        rows=[SLAComplianceRow(**row) for row in result["rows"]],
+        overall_compliance_pct=result["overall_compliance_pct"],
     )
 
 
