@@ -7,7 +7,7 @@ import pandas as pd
 from app.celery_app import celery_app
 from app.db.models.datasets import VirtualDataset
 from app.db.repositories.event_log import PostgresEventLogRepository
-from app.db.session import AsyncSessionLocal
+from app.db.session import AsyncTaskSessionLocal
 from app.domain.mining.duration import compute_case_duration
 from app.domain.mining.filters import apply_filter, parse_filters
 from app.domain.mining.rework import compute_duration_comparison, compute_global_rework_pct
@@ -76,7 +76,7 @@ async def compute_and_store_stats(db: Any, vd_id: int) -> None:
 
 
 async def _run(vd_id: int) -> None:
-    async with AsyncSessionLocal() as db:
+    async with AsyncTaskSessionLocal() as db:
         await compute_and_store_stats(db, vd_id)
 
 

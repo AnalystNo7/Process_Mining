@@ -4,12 +4,12 @@ from typing import Any
 
 from app.celery_app import celery_app
 from app.db.models.datasets import PhysicalDataset
-from app.db.session import AsyncSessionLocal
+from app.db.session import AsyncTaskSessionLocal
 from app.services import physical_dataset_service
 
 
 async def _run_upload(dataset_id: int) -> None:
-    async with AsyncSessionLocal() as db:
+    async with AsyncTaskSessionLocal() as db:
         dataset = await db.get(PhysicalDataset, dataset_id)
         if dataset is None:
             return
