@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -25,7 +27,7 @@ def test_settings_loads_from_env(env: pytest.MonkeyPatch) -> None:
     settings = Settings(_env_file=None)
     assert settings.DATABASE_URL == REQUIRED_ENV["DATABASE_URL"]
     assert settings.APP_SECRET_KEY == REQUIRED_ENV["APP_SECRET_KEY"]
-    assert str(settings.STORAGE_PATH) == "/tmp/pm-storage"
+    assert settings.STORAGE_PATH == Path("/tmp/pm-storage")
 
 
 def test_optional_fields_have_defaults(env: pytest.MonkeyPatch) -> None:
