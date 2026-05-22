@@ -1,7 +1,9 @@
 import { Empty, Statistic, Table, Tag, Typography, type TableColumnsType } from 'antd';
 import type { Data, Layout } from 'plotly.js';
 
+import type { CytoscapeElement } from '@/api/analytics';
 import { Plot } from '@/components/Plot';
+import { ProcessGraph } from '@/components/ProcessGraph';
 import { formatDuration } from '@/lib/format';
 
 interface XYPoint {
@@ -304,12 +306,14 @@ export function WidgetContent({
       return <SlaTable data={data as never} />;
     case 'top_paths_graph':
       return <TopPaths data={data as never} />;
-    case 'process_graph':
-      return (
-        <Empty
-          description="Граф процесса доступен на вкладке «Граф» виртуального датасета"
-        />
+    case 'process_graph': {
+      const graph = data as { nodes: CytoscapeElement[]; edges: CytoscapeElement[] };
+      return graph.nodes.length > 0 ? (
+        <ProcessGraph nodes={graph.nodes} edges={graph.edges} height={360} />
+      ) : (
+        <Empty description="Недостаточно данных для графа" />
       );
+    }
     default:
       return <Empty description={`Тип виджета «${type}» не поддерживается`} />;
   }

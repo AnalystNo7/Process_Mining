@@ -6,6 +6,7 @@ import { Link, useParams } from 'react-router-dom';
 import { getProject } from '@/api/projects';
 import { PhysicalDatasetsTab } from '@/features/datasets/PhysicalDatasetsTab';
 import { RoleMappingTab } from '@/features/datasets/RoleMappingTab';
+import { SlaRulesTab } from '@/features/datasets/SlaRulesTab';
 import { VirtualDatasetsTab } from '@/features/datasets/VirtualDatasetsTab';
 
 export function ProjectDetailPage() {
@@ -61,6 +62,11 @@ export function ProjectDetailPage() {
             key: 'virtual',
             label: 'Виртуальные датасеты',
             children: <VirtualDatasetsTab projectId={projectId} />,
+          },
+          {
+            key: 'sla',
+            label: 'SLA-правила',
+            children: <SlaRulesTab projectId={projectId} />,
           },
         ]}
       />
