@@ -2,28 +2,83 @@ import { DownloadOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import type { CytoscapeElement } from '@/api/analytics';
 
 cytoscape.use(dagre);
 
+const BADGE_W = 40;
+const BADGE_SVG_H = 48;
+const TERMINAL_HEIGHT = 44;
+
+export interface GraphHighlight {
+  nodeIds: string[];
+  edgeKeys: string[];
+}
+
+const TERMINAL_LABELS: Record<string, string> = {
+  start: 'Начало процесса (Вход)',
+  end: 'Конец процесса (Выход)',
+};
+
+/** Левый сегмент узла со счётчиком кейсов — отдельный SVG, чтобы счётчик
+ * попадал в экспорт PNG (cytoscape рендерит background-image в png). */
+function badgeImage(count: number, height: number): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${BADGE_W}" height="${height}">` +
+    `<rect width="${BADGE_W}" height="${height}" fill="#f5f5f5"/>` +
+    `<line x1="${BADGE_W - 0.5}" y1="0" x2="${BADGE_W - 0.5}" y2="${height}" ` +
+    `stroke="#d9d9d9" stroke-width="1"/>` +
+    `<text x="${BADGE_W / 2}" y="${height / 2}" ` +
+    `font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" ` +
+    `font-size="13" font-weight="600" fill="#595959" ` +
+    `text-anchor="middle" dominant-baseline="central">${count}</text>` +
+    `</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 const GRAPH_STYLE = [
   {
     selector: 'node',
     style: {
-      'background-color': '#1677ff',
       label: 'data(label)',
-      color: '#ffffff',
       'text-valign': 'center',
       'text-halign': 'center',
-      'font-size': 11,
-      width: 'label',
-      height: 34,
-      padding: '10px',
-      shape: 'round-rectangle',
       'text-wrap': 'wrap',
-      'text-max-width': '150px',
+      'text-max-width': 'data(tw)',
+      'font-size': 11,
+      width: 'data(w)',
+      shape: 'round-rectangle',
+    },
+  },
+  {
+    selector: 'node[kind = "operation"]',
+    style: {
+      height: 'label',
+      padding: '10px',
+      'background-color': '#ffffff',
+      'border-color': '#d9d9d9',
+      'border-width': 1,
+      color: '#262626',
+      'text-margin-x': BADGE_W / 2,
+      'background-image': 'data(badge)',
+      'background-fit': 'none',
+      'background-width': BADGE_W,
+      'background-height': '100%',
+      'background-position-x': '0%',
+      'background-position-y': '50%',
+      'background-clip': 'node',
+    },
+  },
+  {
+    selector: 'node[kind = "start"], node[kind = "end"]',
+    style: {
+      height: TERMINAL_HEIGHT,
+      'background-color': '#1677ff',
+      'border-width': 0,
+      color: '#ffffff',
+      'font-weight': 600,
     },
   },
   {
@@ -42,41 +97,115 @@ const GRAPH_STYLE = [
       'text-background-padding': '2px',
     },
   },
+  { selector: '.dim', style: { opacity: 0.18 } },
+  {
+    selector: 'node.hl',
+    style: { 'border-color': '#fa8c16', 'border-width': 3 },
+  },
+  {
+    selector: 'edge.hl',
+    style: {
+      'line-color': '#fa8c16',
+      'target-arrow-color': '#fa8c16',
+      color: '#fa8c16',
+      width: 3,
+    },
+  },
 ];
+
+function applyHighlight(cy: cytoscape.Core, highlight?: GraphHighlight): void {
+  cy.batch(() => {
+    cy.elements().removeClass('hl dim');
+    if (!highlight || (!highlight.nodeIds.length && !highlight.edgeKeys.length)) {
+      return;
+    }
+    const nodeSet = new Set(highlight.nodeIds);
+    const edgeSet = new Set(highlight.edgeKeys);
+    cy.nodes().forEach((node) => {
+      node.addClass(nodeSet.has(node.id()) ? 'hl' : 'dim');
+    });
+    cy.edges().forEach((edge) => {
+      edge.addClass(edgeSet.has(edge.id()) ? 'hl' : 'dim');
+    });
+  });
+}
 
 export function ProcessGraph({
   nodes,
   edges,
-  height = 520,
+  highlight,
+  height = 560,
 }: {
   nodes: CytoscapeElement[];
   edges: CytoscapeElement[];
+  highlight?: GraphHighlight;
   height?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
+  const highlightRef = useRef(highlight);
+  highlightRef.current = highlight;
+
+  const elements = useMemo(() => {
+    const nodeEls = nodes.map((node) => {
+      const kind = (node.data.kind as string) ?? 'operation';
+      const count = Number(node.data.count ?? 0);
+      const rawLabel = String(node.data.label ?? node.data.id);
+      const label = TERMINAL_LABELS[kind] ?? rawLabel;
+      const w =
+        kind === 'operation'
+          ? Math.min(320, Math.max(170, label.length * 6 + 70))
+          : 200;
+      return {
+        data: {
+          id: String(node.data.id),
+          kind,
+          label,
+          count,
+          w,
+          tw: kind === 'operation' ? w - 64 : w - 24,
+          badge: kind === 'operation' ? badgeImage(count, BADGE_SVG_H) : '',
+        },
+      };
+    });
+    const edgeEls = edges.map((edge) => ({
+      data: {
+        id: String(edge.data.id),
+        source: String(edge.data.source),
+        target: String(edge.data.target),
+        count: Number(edge.data.count ?? 0),
+      },
+    }));
+    return [...nodeEls, ...edgeEls];
+  }, [nodes, edges]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) {
       return;
     }
-    const options = {
+    const cy = cytoscape({
       container,
-      elements: [...nodes, ...edges],
+      elements,
       style: GRAPH_STYLE,
-      layout: { name: 'dagre', rankDir: 'LR', nodeSep: 28, rankSep: 70 },
+      layout: { name: 'dagre', rankDir: 'TB', nodeSep: 35, rankSep: 55 },
       minZoom: 0.2,
       maxZoom: 2.5,
       wheelSensitivity: 0.2,
-    };
-    const cy = cytoscape(options as unknown as cytoscape.CytoscapeOptions);
+    } as unknown as cytoscape.CytoscapeOptions);
     cyRef.current = cy;
+    applyHighlight(cy, highlightRef.current);
     return () => {
       cy.destroy();
       cyRef.current = null;
     };
-  }, [nodes, edges]);
+  }, [elements]);
+
+  useEffect(() => {
+    if (cyRef.current) {
+      applyHighlight(cyRef.current, highlight);
+    }
+  }, [highlight]);
 
   const exportPng = () => {
     const cy = cyRef.current;

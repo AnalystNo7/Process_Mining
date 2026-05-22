@@ -7,7 +7,6 @@ import { getVirtualDataset } from '@/api/virtualDatasets';
 import { AnnotationsTab } from '@/features/annotations/AnnotationsTab';
 import { CasesTab } from '@/features/analytics/CasesTab';
 import { ProcessGraphTab } from '@/features/analytics/ProcessGraphTab';
-import { VariantsTab } from '@/features/analytics/VariantsTab';
 import { DashboardsTab } from '@/features/dashboards/DashboardsTab';
 
 export function VirtualDatasetPage() {
@@ -43,15 +42,10 @@ export function VirtualDatasetPage() {
           },
           {
             key: 'graph',
-            label: 'Граф процесса',
+            label: 'Процесс',
             children: (
               <ProcessGraphTab projectId={projectId} vdId={vdId} vdName={vdName} />
             ),
-          },
-          {
-            key: 'variants',
-            label: 'Маршруты',
-            children: <VariantsTab projectId={projectId} vdId={vdId} />,
           },
           {
             key: 'cases',
