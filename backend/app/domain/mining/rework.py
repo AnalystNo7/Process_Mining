@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from app.domain.mining.duration import compute_case_duration
+from app.domain.mining.duration import compute_case_duration, compute_own_duration
 
 
 def compute_rework_per_operation(
@@ -24,6 +24,69 @@ def compute_rework_per_operation(
     )
     agg["rework_pct"] = (agg["repeats"] / agg["total"] * 100).round(2)
     return agg.sort_values("total", ascending=False).reset_index(drop=True)
+
+
+def compute_operation_summary(
+    df: pd.DataFrame, activity_col: str = "activity"
+) -> pd.DataFrame:
+    """Сводка по операциям для таблицы «Операции».
+
+    Колонки: activity | n_cases (число кейсов с операцией) | n_events (число
+    вхождений) | avg_own_duration_seconds (t avg) | median_own_duration_seconds
+    (t median) | avg_share_pct (средняя доля операции в длительности кейса, %).
+    Сортировка по n_cases убыв."""
+    columns = [
+        "activity",
+        "n_cases",
+        "n_events",
+        "avg_own_duration_seconds",
+        "median_own_duration_seconds",
+        "avg_share_pct",
+    ]
+    if len(df) == 0:
+        return pd.DataFrame(columns=columns)
+
+    work = df.copy()
+    work["own_duration_sec"] = compute_own_duration(work)
+
+    base = (
+        work.groupby(activity_col)
+        .agg(
+            n_cases=("case_id", "nunique"),
+            n_events=("case_id", "count"),
+            avg_own_duration_seconds=("own_duration_sec", "mean"),
+            median_own_duration_seconds=("own_duration_sec", "median"),
+        )
+        .reset_index()
+        .rename(columns={activity_col: "activity"})
+    )
+
+    # Доля операции в длительности кейса, усреднённая по кейсам.
+    case_dur = compute_case_duration(df).set_index("case_id")["duration_seconds"]
+    per_case_op = (
+        work.groupby(["case_id", activity_col])["own_duration_sec"].sum().reset_index()
+    )
+    per_case_op["case_duration"] = per_case_op["case_id"].map(case_dur)
+    per_case_op = per_case_op[per_case_op["case_duration"] > 0].copy()
+    per_case_op["share_pct"] = (
+        per_case_op["own_duration_sec"] / per_case_op["case_duration"] * 100
+    )
+    share = (
+        per_case_op.groupby(activity_col)["share_pct"]
+        .mean()
+        .reset_index()
+        .rename(columns={activity_col: "activity", "share_pct": "avg_share_pct"})
+    )
+
+    result = base.merge(share, on="activity", how="left")
+    result["avg_share_pct"] = result["avg_share_pct"].fillna(0.0)
+    for col in (
+        "avg_own_duration_seconds",
+        "median_own_duration_seconds",
+        "avg_share_pct",
+    ):
+        result[col] = result[col].round(2)
+    return result.sort_values("n_cases", ascending=False).reset_index(drop=True)
 
 
 def compute_global_rework_pct(df: pd.DataFrame, activity_col: str = "activity") -> float:

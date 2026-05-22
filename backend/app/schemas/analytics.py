@@ -44,6 +44,48 @@ class DFGResponse(BaseModel):
     end_activities: dict[str, int]
 
 
+class PathRow(BaseModel):
+    index: int
+    trace: list[str]
+    n_cases: int
+    avg_duration_seconds: float
+    case_ids: list[str]
+
+
+class ProcessMapResponse(BaseModel):
+    mode: str
+    nodes: list[CytoscapeElement]
+    edges: list[CytoscapeElement]
+    start_activities: dict[str, int]
+    end_activities: dict[str, int]
+    paths: list[PathRow]
+    total_cases: int
+    total_variants: int
+    top_n: int
+    covered_cases: int
+    coverage_pct: float
+
+
+class OperationSummaryRow(BaseModel):
+    activity: str
+    n_cases: int
+    n_events: int
+    avg_own_duration_seconds: float
+    median_own_duration_seconds: float
+    avg_share_pct: float
+
+
+class OperationsResponse(BaseModel):
+    items: list[OperationSummaryRow]
+
+
+class FilterOptionsResponse(BaseModel):
+    departments: list[str]
+    roles: list[str]
+    resources: list[str]
+    activities: list[str]
+
+
 class MonthlyDynamicsRow(BaseModel):
     month: str
     n_events: int

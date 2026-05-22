@@ -33,6 +33,13 @@ def parse_filters(data: dict[str, Any] | None) -> EventFilter:
         max_days = float(raw_duration.get("max_days", 10**6))
         case_duration_range = (min_days * _SECONDS_PER_DAY, max_days * _SECONDS_PER_DAY)
 
+    events_per_case_range: tuple[int, int] | None = None
+    raw_events = data.get("events_per_case")
+    if raw_events:
+        min_events = int(raw_events.get("min", 0))
+        max_events = int(raw_events.get("max", 10**9))
+        events_per_case_range = (min_events, max_events)
+
     return EventFilter(
         date_range=date_range,
         departments=data.get("departments"),
@@ -40,6 +47,7 @@ def parse_filters(data: dict[str, Any] | None) -> EventFilter:
         resources=data.get("resources"),
         activities=data.get("activities"),
         case_duration_range=case_duration_range,
+        events_per_case_range=events_per_case_range,
         with_rework=data.get("with_rework"),
         attributes_filter=data.get("attributes_filter"),
         case_ids=data.get("case_ids"),
@@ -78,7 +86,11 @@ def apply_filter(df: pd.DataFrame, event_filter: EventFilter) -> pd.DataFrame:
             ]
 
     # Кейс-уровневые фильтры.
-    if event_filter.with_rework is not None or event_filter.case_duration_range is not None:
+    if (
+        event_filter.with_rework is not None
+        or event_filter.case_duration_range is not None
+        or event_filter.events_per_case_range is not None
+    ):
         if len(result) == 0:
             return result
         case_dur = compute_case_duration(result)
@@ -96,6 +108,11 @@ def apply_filter(df: pd.DataFrame, event_filter: EventFilter) -> pd.DataFrame:
             mask = (case_dur["duration_seconds"] >= min_d) & (
                 case_dur["duration_seconds"] <= max_d
             )
+            valid_cases = valid_cases & set(case_dur[mask]["case_id"])
+
+        if event_filter.events_per_case_range is not None:
+            min_e, max_e = event_filter.events_per_case_range
+            mask = (case_dur["n_events"] >= min_e) & (case_dur["n_events"] <= max_e)
             valid_cases = valid_cases & set(case_dur[mask]["case_id"])
 
         result = result[result["case_id"].isin(valid_cases)]

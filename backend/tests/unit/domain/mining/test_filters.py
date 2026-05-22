@@ -91,6 +91,18 @@ def test_filter_case_duration_range() -> None:
     assert set(result["case_id"]) == {"Long"}
 
 
+def test_filter_events_per_case_range() -> None:
+    df = pd.DataFrame(
+        [
+            _ev("Short", "A", 0),
+            _ev("Long", "A", 0), _ev("Long", "B", 1), _ev("Long", "C", 2),
+        ]
+    )
+    result = apply_filter(df, EventFilter(events_per_case_range=(2, 10)))
+    assert set(result["case_id"]) == {"Long"}
+    assert len(result) == 3  # вся трасса кейса сохранена
+
+
 def test_filter_attributes() -> None:
     df = pd.DataFrame(
         [
@@ -131,6 +143,11 @@ def test_parse_filters_case_duration() -> None:
     event_filter = parse_filters({"case_duration": {"min_days": 30}})
     assert event_filter.case_duration_range is not None
     assert event_filter.case_duration_range[0] == 30 * 86400
+
+
+def test_parse_filters_events_per_case() -> None:
+    event_filter = parse_filters({"events_per_case": {"min": 3, "max": 7}})
+    assert event_filter.events_per_case_range == (3, 7)
 
 
 def test_parse_filters_passthrough_fields() -> None:

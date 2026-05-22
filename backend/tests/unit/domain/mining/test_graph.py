@@ -2,7 +2,25 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from app.domain.mining.graph import DFG, DFGEdge, DFGNode, build_dfg, filter_dfg, limit_dfg
+from app.domain.mining.graph import (
+    DFG,
+    END_NODE,
+    START_NODE,
+    DFGEdge,
+    DFGNode,
+    build_dfg,
+    build_top_paths_graph,
+    filter_dfg,
+    limit_dfg,
+)
+
+_EMPTY = pd.DataFrame(
+    columns=["case_id", "activity", "timestamp_start", "timestamp_end"]
+)
+
+
+def _variants(rows: list[tuple[tuple[str, ...], int]]) -> pd.DataFrame:
+    return pd.DataFrame([{"trace": trace, "n_cases": n} for trace, n in rows])
 
 _BASE = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
@@ -86,3 +104,53 @@ def test_limit_dfg_noop_when_within_limit() -> None:
         pd.DataFrame([_ev("C1", "A", 0), _ev("C1", "B", 1)])
     )
     assert limit_dfg(dfg, 60) is dfg
+
+
+def test_top_paths_graph_merges_variant_counts() -> None:
+    graph = build_top_paths_graph(
+        _EMPTY, _variants([(("A", "B", "C"), 3), (("A", "C"), 2)])
+    )
+    counts = {n.activity: n.count for n in graph.nodes}
+    assert counts["A"] == 5  # операция есть в обеих трассах
+    assert counts["B"] == 3
+    assert counts["C"] == 5
+    assert counts[START_NODE] == 5
+    assert counts[END_NODE] == 5
+
+
+def test_top_paths_graph_single_edge_per_pair() -> None:
+    # A→B встречается в двух разных трассах — должно остаться одно ребро.
+    graph = build_top_paths_graph(
+        _EMPTY, _variants([(("A", "B", "C"), 3), (("X", "A", "B"), 2)])
+    )
+    ab = [e for e in graph.edges if e.from_activity == "A" and e.to_activity == "B"]
+    assert len(ab) == 1
+    assert ab[0].count == 5
+
+
+def test_top_paths_graph_synthetic_nodes_and_kind() -> None:
+    graph = build_top_paths_graph(_EMPTY, _variants([(("A", "B"), 4)]))
+    kinds = {n.activity: n.kind for n in graph.nodes}
+    assert kinds[START_NODE] == "start"
+    assert kinds[END_NODE] == "end"
+    assert kinds["A"] == "operation"
+    edge_pairs = {(e.from_activity, e.to_activity) for e in graph.edges}
+    assert (START_NODE, "A") in edge_pairs
+    assert ("B", END_NODE) in edge_pairs
+
+
+def test_top_paths_graph_loop() -> None:
+    # Возврат A→B→A: операция A учитывается один раз на вариант (set), но
+    # рёбра A→B и B→A должны присутствовать оба.
+    graph = build_top_paths_graph(_EMPTY, _variants([(("A", "B", "A"), 2)]))
+    node_a = next(n for n in graph.nodes if n.activity == "A")
+    assert node_a.count == 2
+    edge_pairs = {(e.from_activity, e.to_activity) for e in graph.edges}
+    assert ("A", "B") in edge_pairs
+    assert ("B", "A") in edge_pairs
+
+
+def test_top_paths_graph_empty() -> None:
+    graph = build_top_paths_graph(_EMPTY, pd.DataFrame(columns=["trace", "n_cases"]))
+    assert graph.nodes == []
+    assert graph.edges == []

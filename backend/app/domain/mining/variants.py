@@ -21,8 +21,14 @@ def get_top_n_variants(
     df: pd.DataFrame, n: int = 5, activity_col: str = "activity"
 ) -> pd.DataFrame:
     """Топ-N уникальных трасс: trace | n_cases | avg_duration_seconds |
-    example_case_ids. Сортировка по n_cases убыв."""
-    columns = ["trace", "n_cases", "avg_duration_seconds", "example_case_ids"]
+    example_case_ids | case_ids. Сортировка по n_cases убыв."""
+    columns = [
+        "trace",
+        "n_cases",
+        "avg_duration_seconds",
+        "example_case_ids",
+        "case_ids",
+    ]
     traces = get_case_traces(df, activity_col)
     if traces.empty:
         return pd.DataFrame(columns=columns)
@@ -30,14 +36,15 @@ def get_top_n_variants(
     case_dur = compute_case_duration(df).set_index("case_id")
     variants: list[dict[str, Any]] = []
     for trace, case_ids in traces.groupby(traces).groups.items():
-        cases_list = list(case_ids)
-        avg_dur = case_dur.loc[cases_list, "duration_seconds"].mean()
+        cases_list = [str(c) for c in case_ids]
+        avg_dur = case_dur.loc[list(case_ids), "duration_seconds"].mean()
         variants.append(
             {
                 "trace": trace,
                 "n_cases": len(cases_list),
                 "avg_duration_seconds": float(avg_dur),
-                "example_case_ids": [str(c) for c in cases_list[:5]],
+                "example_case_ids": cases_list[:5],
+                "case_ids": cases_list,
             }
         )
     variants_df = pd.DataFrame(variants).sort_values("n_cases", ascending=False)

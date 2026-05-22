@@ -4,12 +4,18 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from app.domain.mining.duration import compute_own_duration
+
+START_NODE = "__start__"
+END_NODE = "__end__"
+
 
 @dataclass
 class DFGNode:
     activity: str
     count: int
     avg_own_duration_seconds: float
+    kind: str = "operation"  # operation | start | end
 
 
 @dataclass
@@ -96,6 +102,66 @@ def build_dfg(df: pd.DataFrame, activity_col: str = "activity") -> DFG:
         .to_dict()
         .items()
     }
+    return DFG(nodes=nodes, edges=edges, start_activities=starts, end_activities=ends)
+
+
+def _avg_own_duration_by_activity(
+    df: pd.DataFrame, activity_col: str
+) -> dict[str, float]:
+    if len(df) == 0 or activity_col not in df.columns:
+        return {}
+    own = compute_own_duration(df)
+    means = own.groupby(df[activity_col]).mean()
+    return {str(k): _safe_float(v) for k, v in means.to_dict().items()}
+
+
+def build_top_paths_graph(
+    df: pd.DataFrame,
+    variants_df: pd.DataFrame,
+    activity_col: str = "activity",
+) -> DFG:
+    """Граф топ-N путей: объединение трасс из ``variants_df``.
+
+    Узел-операция: count = Σ ``n_cases`` вариантов, в трассе которых встречается
+    операция (через ``set(trace)``). Одно ребро на пару (from, to): count =
+    Σ ``n_cases`` по всем последовательным парам трасс. Добавляет синтетические
+    узлы ``__start__``/``__end__`` (kind = start/end) и рёбра к ним."""
+    if len(variants_df) == 0:
+        return DFG()
+
+    node_counts: dict[str, int] = {}
+    edge_counts: dict[tuple[str, str], int] = {}
+    starts: dict[str, int] = {}
+    ends: dict[str, int] = {}
+    covered = 0
+
+    for _, row in variants_df.iterrows():
+        trace = tuple(row["trace"])
+        if not trace:
+            continue
+        n_cases = int(row["n_cases"])
+        covered += n_cases
+        for activity in set(trace):
+            node_counts[activity] = node_counts.get(activity, 0) + n_cases
+        starts[trace[0]] = starts.get(trace[0], 0) + n_cases
+        ends[trace[-1]] = ends.get(trace[-1], 0) + n_cases
+        pairs = [(START_NODE, trace[0]), *zip(trace, trace[1:]), (trace[-1], END_NODE)]
+        for pair in pairs:
+            edge_counts[pair] = edge_counts.get(pair, 0) + n_cases
+
+    own_dur = _avg_own_duration_by_activity(df, activity_col)
+    nodes = [
+        DFGNode(START_NODE, covered, 0.0, kind="start"),
+        DFGNode(END_NODE, covered, 0.0, kind="end"),
+        *(
+            DFGNode(activity, count, own_dur.get(activity, 0.0))
+            for activity, count in node_counts.items()
+        ),
+    ]
+    edges = [
+        DFGEdge(from_act, to_act, count, 0.0)
+        for (from_act, to_act), count in edge_counts.items()
+    ]
     return DFG(nodes=nodes, edges=edges, start_activities=starts, end_activities=ends)
 
 

@@ -65,6 +65,48 @@ def test_split_cases_by_rework() -> None:
     assert without_rework == {"C2"}
 
 
+def test_operation_summary_counts() -> None:
+    df = pd.DataFrame(
+        [_ev("C1", "A", 0), _ev("C1", "A", 2), _ev("C1", "B", 4), _ev("C2", "A", 6)]
+    )
+    summary = rework.compute_operation_summary(df)
+    row_a = summary[summary["activity"] == "A"].iloc[0]
+    assert row_a["n_cases"] == 2  # C1, C2
+    assert row_a["n_events"] == 3  # три вхождения A
+
+
+def test_operation_summary_durations() -> None:
+    df = pd.DataFrame([_ev("C1", "A", 0, dur_h=2), _ev("C2", "A", 6, dur_h=4)])
+    row = rework.compute_operation_summary(df).iloc[0]
+    assert row["avg_own_duration_seconds"] == 3 * 3600
+    assert row["median_own_duration_seconds"] == 3 * 3600
+
+
+def test_operation_summary_share() -> None:
+    # C1: A длится 2ч, B длится 1ч; кейс тянется с 0ч до 5ч → доля A = 40%.
+    df = pd.DataFrame([_ev("C1", "A", 0, dur_h=2), _ev("C1", "B", 4, dur_h=1)])
+    row_a = rework.compute_operation_summary(df)
+    row_a = row_a[row_a["activity"] == "A"].iloc[0]
+    assert row_a["avg_share_pct"] == 40.0
+
+
+def test_operation_summary_zero_duration_case() -> None:
+    df = pd.DataFrame(
+        [{"case_id": "C1", "activity": "A", "timestamp_start": _BASE,
+          "timestamp_end": _BASE}]
+    )
+    row = rework.compute_operation_summary(df).iloc[0]
+    assert row["n_cases"] == 1
+    assert row["avg_share_pct"] == 0.0
+
+
+def test_operation_summary_empty() -> None:
+    df = pd.DataFrame(
+        columns=["case_id", "activity", "timestamp_start", "timestamp_end"]
+    )
+    assert len(rework.compute_operation_summary(df)) == 0
+
+
 def test_duration_comparison() -> None:
     df = pd.DataFrame(
         [

@@ -31,6 +31,7 @@ class EventFilter:
     resources: list[str] | None = None
     activities: list[str] | None = None
     case_duration_range: tuple[float, float] | None = None
+    events_per_case_range: tuple[int, int] | None = None
     with_rework: bool | None = None
     attributes_filter: dict[str, list[str]] | None = None
     case_ids: list[str] | None = None
