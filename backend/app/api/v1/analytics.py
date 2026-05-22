@@ -11,7 +11,7 @@ from app.db.models.users import User
 from app.db.session import get_db
 from app.domain.mining.bpmn_export import dfg_to_bpmn
 from app.domain.mining.dynamics import compute_monthly_dynamics
-from app.domain.mining.graph import build_dfg, filter_dfg
+from app.domain.mining.graph import build_dfg, filter_dfg, limit_dfg
 from app.domain.mining.resources import compute_resource_workload
 from app.domain.mining.rework import compute_global_rework_pct, compute_rework_per_operation
 from app.domain.mining.sla import aggregate_sla_compliance, evaluate_sla
@@ -127,6 +127,7 @@ async def dfg(
     vd_id: int,
     activity_level: ActivityLevel = "raw",
     min_edge_frequency_pct: float = Query(default=0.0, ge=0, le=100),
+    max_nodes: int = Query(default=60, ge=0, le=1000),
     filters: str | None = None,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
@@ -136,7 +137,9 @@ async def dfg(
         db, virtual, analytics_service.filter_from_query(filters)
     )
     column = analytics_service.activity_column(activity_level)
-    graph = filter_dfg(build_dfg(df, column), min_edge_frequency_pct)
+    graph = limit_dfg(
+        filter_dfg(build_dfg(df, column), min_edge_frequency_pct), max_nodes
+    )
     return DFGResponse(
         nodes=[
             CytoscapeElement(

@@ -113,3 +113,25 @@ def filter_dfg(dfg: DFG, min_edge_frequency_pct: float = 0.0) -> DFG:
         start_activities=dfg.start_activities,
         end_activities=dfg.end_activities,
     )
+
+
+def limit_dfg(dfg: DFG, max_nodes: int) -> DFG:
+    """Оставляет только max_nodes самых частых узлов и рёбра между ними.
+
+    Нужен для отрисовки: граф из сотен операций не читается и тормозит UI."""
+    if max_nodes <= 0 or len(dfg.nodes) <= max_nodes:
+        return dfg
+    top_nodes = sorted(dfg.nodes, key=lambda n: n.count, reverse=True)[:max_nodes]
+    kept = {node.activity for node in top_nodes}
+    return DFG(
+        nodes=top_nodes,
+        edges=[
+            edge
+            for edge in dfg.edges
+            if edge.from_activity in kept and edge.to_activity in kept
+        ],
+        start_activities={
+            k: v for k, v in dfg.start_activities.items() if k in kept
+        },
+        end_activities={k: v for k, v in dfg.end_activities.items() if k in kept},
+    )

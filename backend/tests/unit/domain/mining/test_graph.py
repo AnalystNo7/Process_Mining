@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from app.domain.mining.graph import build_dfg, filter_dfg
+from app.domain.mining.graph import DFG, DFGEdge, DFGNode, build_dfg, filter_dfg, limit_dfg
 
 _BASE = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
@@ -57,3 +57,32 @@ def test_build_dfg_empty() -> None:
     dfg = build_dfg(df)
     assert dfg.nodes == []
     assert dfg.edges == []
+
+
+def test_limit_dfg_keeps_top_nodes_and_consistent_edges() -> None:
+    dfg = DFG(
+        nodes=[DFGNode(f"A{i}", 100 - i, 1.0) for i in range(10)],
+        edges=[
+            DFGEdge("A0", "A1", 5, 1.0),
+            DFGEdge("A1", "A9", 5, 1.0),
+            DFGEdge("A0", "A2", 5, 1.0),
+        ],
+        start_activities={"A0": 5, "A9": 1},
+        end_activities={"A9": 5},
+    )
+    limited = limit_dfg(dfg, 3)
+    assert {n.activity for n in limited.nodes} == {"A0", "A1", "A2"}
+    # Рёбра в недоступные узлы (A9) отброшены — иначе граф не отрисуется.
+    assert {(e.from_activity, e.to_activity) for e in limited.edges} == {
+        ("A0", "A1"),
+        ("A0", "A2"),
+    }
+    assert limited.start_activities == {"A0": 5}
+    assert limited.end_activities == {}
+
+
+def test_limit_dfg_noop_when_within_limit() -> None:
+    dfg = build_dfg(
+        pd.DataFrame([_ev("C1", "A", 0), _ev("C1", "B", 1)])
+    )
+    assert limit_dfg(dfg, 60) is dfg

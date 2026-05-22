@@ -71,7 +71,11 @@ function analyticsBase(projectId: number, vdId: number): string {
 export async function getDfg(
   projectId: number,
   vdId: number,
-  params?: { activity_level?: string; min_edge_frequency_pct?: number }
+  params?: {
+    activity_level?: string;
+    min_edge_frequency_pct?: number;
+    max_nodes?: number;
+  }
 ): Promise<DfgResponse> {
   const { data } = await apiClient.get<DfgResponse>(
     `${analyticsBase(projectId, vdId)}/dfg`,
