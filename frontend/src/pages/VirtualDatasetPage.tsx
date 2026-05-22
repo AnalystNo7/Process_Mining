@@ -4,6 +4,7 @@ import { Button, Tabs, Typography } from 'antd';
 import { Link, useParams } from 'react-router-dom';
 
 import { getVirtualDataset } from '@/api/virtualDatasets';
+import { AnnotationsTab } from '@/features/annotations/AnnotationsTab';
 import { CasesTab } from '@/features/analytics/CasesTab';
 import { ProcessGraphTab } from '@/features/analytics/ProcessGraphTab';
 import { VariantsTab } from '@/features/analytics/VariantsTab';
@@ -56,6 +57,11 @@ export function VirtualDatasetPage() {
             key: 'cases',
             label: 'Кейсы',
             children: <CasesTab projectId={projectId} vdId={vdId} />,
+          },
+          {
+            key: 'annotations',
+            label: 'Аннотации',
+            children: <AnnotationsTab vdId={vdId} />,
           },
         ]}
       />

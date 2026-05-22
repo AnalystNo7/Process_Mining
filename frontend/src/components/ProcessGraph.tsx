@@ -1,3 +1,5 @@
+import { DownloadOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import { useEffect, useRef } from 'react';
@@ -52,6 +54,7 @@ export function ProcessGraph({
   height?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const cyRef = useRef<cytoscape.Core | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -68,13 +71,38 @@ export function ProcessGraph({
       wheelSensitivity: 0.2,
     };
     const cy = cytoscape(options as unknown as cytoscape.CytoscapeOptions);
-    return () => cy.destroy();
+    cyRef.current = cy;
+    return () => {
+      cy.destroy();
+      cyRef.current = null;
+    };
   }, [nodes, edges]);
 
+  const exportPng = () => {
+    const cy = cyRef.current;
+    if (!cy) {
+      return;
+    }
+    const blob = cy.png({ output: 'blob', bg: '#ffffff', full: true, scale: 2 }) as Blob;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'process-graph.png';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div
-      ref={containerRef}
-      style={{ height, border: '1px solid #f0f0f0', borderRadius: 8 }}
-    />
+    <div>
+      <div style={{ textAlign: 'right', marginBottom: 8 }}>
+        <Button size="small" icon={<DownloadOutlined />} onClick={exportPng}>
+          Скачать PNG
+        </Button>
+      </div>
+      <div
+        ref={containerRef}
+        style={{ height, border: '1px solid #f0f0f0', borderRadius: 8 }}
+      />
+    </div>
   );
 }
