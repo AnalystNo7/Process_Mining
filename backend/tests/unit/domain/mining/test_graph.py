@@ -111,7 +111,7 @@ def test_top_paths_graph_merges_variant_counts() -> None:
         _EMPTY, _variants([(("A", "B", "C"), 3), (("A", "C"), 2)])
     )
     counts = {n.activity: n.count for n in graph.nodes}
-    assert counts["A"] == 5  # операция есть в обеих трассах
+    assert counts["A"] == 5  # по одному вхождению в каждой трассе: 3 + 2
     assert counts["B"] == 3
     assert counts["C"] == 5
     assert counts[START_NODE] == 5
@@ -139,12 +139,11 @@ def test_top_paths_graph_synthetic_nodes_and_kind() -> None:
     assert ("B", END_NODE) in edge_pairs
 
 
-def test_top_paths_graph_loop() -> None:
-    # Возврат A→B→A: операция A учитывается один раз на вариант (set), но
-    # рёбра A→B и B→A должны присутствовать оба.
+def test_top_paths_graph_loop_counts_occurrences() -> None:
+    # Возврат A→B→A: A встречается дважды в трассе → 2 вхождения × 2 кейса = 4.
     graph = build_top_paths_graph(_EMPTY, _variants([(("A", "B", "A"), 2)]))
     node_a = next(n for n in graph.nodes if n.activity == "A")
-    assert node_a.count == 2
+    assert node_a.count == 4
     edge_pairs = {(e.from_activity, e.to_activity) for e in graph.edges}
     assert ("A", "B") in edge_pairs
     assert ("B", "A") in edge_pairs

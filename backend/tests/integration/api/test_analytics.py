@@ -158,6 +158,85 @@ async def test_bpmn_export(client, analyst_user, db_session, tmp_path) -> None:
     assert "Согласование" in body  # узел из тестовых данных
 
 
+async def test_process_map_top_paths(client, analyst_user, db_session, tmp_path) -> None:
+    project_id, vd_id = await _setup_vd(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/process-map",
+        headers=analyst_user.headers,
+        params={"mode": "top_paths", "n": 5},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["mode"] == "top_paths"
+    assert data["total_cases"] == 15
+    assert data["total_variants"] == 1
+    assert data["covered_cases"] == 15
+    # Все кейсы имеют одну трассу → один путь покрывает всё.
+    assert len(data["paths"]) == 1
+    path = data["paths"][0]
+    assert path["n_cases"] == 15
+    assert path["trace"] == ["Старт", "Согласование", "Согласование", "Конец"]
+    assert len(path["case_ids"]) == 15
+    # Синтетические терминальные узлы.
+    kinds = {n["data"]["id"]: n["data"]["kind"] for n in data["nodes"]}
+    assert kinds["__start__"] == "start"
+    assert kinds["__end__"] == "end"
+    # Счётчик узла — вхождения операции: Согласование встречается 2 раза × 15.
+    counts = {n["data"]["id"]: n["data"]["count"] for n in data["nodes"]}
+    assert counts["Согласование"] == 30
+    assert counts["Старт"] == 15
+
+
+async def test_process_map_frequency(client, analyst_user, db_session, tmp_path) -> None:
+    project_id, vd_id = await _setup_vd(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/process-map",
+        headers=analyst_user.headers,
+        params={"mode": "frequency"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["mode"] == "frequency"
+    assert data["paths"] == []
+    node_ids = {n["data"]["id"] for n in data["nodes"]}
+    assert node_ids == {"Старт", "Согласование", "Конец"}
+
+
+async def test_operations(client, analyst_user, db_session, tmp_path) -> None:
+    project_id, vd_id = await _setup_vd(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/operations",
+        headers=analyst_user.headers,
+    )
+    assert resp.status_code == 200
+    items = {r["activity"]: r for r in resp.json()["items"]}
+    assert items["Согласование"]["n_cases"] == 15
+    assert items["Согласование"]["n_events"] == 30  # 2 вхождения × 15 кейсов
+    assert items["Старт"]["n_events"] == 15
+    assert 0 <= items["Согласование"]["avg_share_pct"] <= 100
+
+
+async def test_filter_options(client, analyst_user, db_session, tmp_path) -> None:
+    project_id, vd_id = await _setup_vd(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/filter-options",
+        headers=analyst_user.headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["departments"] == ["Отдел"]
+    assert set(data["resources"]) == {"User0", "User1", "User2", "User3"}
+    assert set(data["activities"]) == {"Старт", "Согласование", "Конец"}
+
+
 async def test_resources(client, analyst_user, db_session, tmp_path) -> None:
     project_id, vd_id = await _setup_vd(
         client, analyst_user.headers, db_session, analyst_user.id, tmp_path

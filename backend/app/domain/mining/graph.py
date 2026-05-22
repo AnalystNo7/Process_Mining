@@ -122,9 +122,9 @@ def build_top_paths_graph(
 ) -> DFG:
     """Граф топ-N путей: объединение трасс из ``variants_df``.
 
-    Узел-операция: count = Σ ``n_cases`` вариантов, в трассе которых встречается
-    операция (через ``set(trace)``). Одно ребро на пару (from, to): count =
-    Σ ``n_cases`` по всем последовательным парам трасс. Добавляет синтетические
+    Узел-операция: count = число ВХОЖДЕНИЙ операции (событий) во всех кейсах
+    топ-N путей — повтор операции в трассе считается каждый раз. Одно ребро на
+    пару (from, to): count = число вхождений перехода. Добавляет синтетические
     узлы ``__start__``/``__end__`` (kind = start/end) и рёбра к ним."""
     if len(variants_df) == 0:
         return DFG()
@@ -141,7 +141,7 @@ def build_top_paths_graph(
             continue
         n_cases = int(row["n_cases"])
         covered += n_cases
-        for activity in set(trace):
+        for activity in trace:
             node_counts[activity] = node_counts.get(activity, 0) + n_cases
         starts[trace[0]] = starts.get(trace[0], 0) + n_cases
         ends[trace[-1]] = ends.get(trace[-1], 0) + n_cases
