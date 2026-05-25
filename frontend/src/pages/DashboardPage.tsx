@@ -36,6 +36,7 @@ export function DashboardPage() {
     onSuccess: () => {
       notifySuccess('Фильтры применены');
       void queryClient.invalidateQueries({ queryKey: ['dashboard', dashboardId] });
+      void queryClient.invalidateQueries({ queryKey: ['widget-data'] });
     },
     onError: (error) => notifyError(getErrorMessage(error)),
   });
