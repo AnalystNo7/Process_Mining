@@ -8,11 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BusinessRuleError, EntityNotFoundError
 from app.db.models.dashboards import Dashboard, DashboardWidget
 from app.db.models.datasets import NamedSlice, VirtualDataset
-from app.domain.mining.dynamics import compute_monthly_dynamics
+from app.domain.mining.dynamics import (
+    compute_case_flow,
+    compute_events_per_case_histogram,
+    compute_monthly_dynamics,
+    compute_operations_dynamics,
+)
 from app.domain.mining.filters import parse_filters
 from app.domain.mining.graph import build_dfg, filter_dfg
 from app.domain.mining.resources import compute_resource_workload
-from app.domain.mining.rework import compute_global_rework_pct, compute_rework_per_operation
+from app.domain.mining.rework import (
+    compute_global_rework_pct,
+    compute_operation_summary_short,
+    compute_rework_per_operation,
+)
 from app.domain.mining.sla import aggregate_sla_compliance, evaluate_sla
 from app.domain.mining.variants import get_top_n_variants, get_variants_coverage
 from app.domain.mining.workday import WorkdayCalculator
@@ -39,7 +48,20 @@ def format_value(value: Any, fmt: str) -> str:
         return f"{float(value):.2f}%".replace(".", ",")
     if fmt == "duration":
         return format_duration_seconds(float(value))
+    if fmt == "date":
+        return str(value)[:10]
     return str(value)
+
+
+_GRANULARITY_WIDGETS = {"operations_dynamics", "case_flow_cumulative"}
+
+
+def _dashboard_granularity(dashboard: Dashboard) -> str:
+    """Гранулярность из глобальных фильтров дашборда: D/W/M/Q. По умолчанию M."""
+    if not dashboard.global_filters:
+        return "M"
+    value = str(dashboard.global_filters.get("granularity", "M")).upper()
+    return value if value in {"D", "W", "M", "Q"} else "M"
 
 
 async def _resolve_filter(
@@ -72,9 +94,12 @@ async def _kpi_card(
 ) -> dict[str, Any]:
     metric = config.get("metric", "total_cases")
     fmt = config.get("format", "number")
+    stats: dict[str, Any] | None = None
     if event_filter is None and virtual.cached_stats:
-        stats: dict[str, Any] = virtual.cached_stats
-    else:
+        stats = virtual.cached_stats
+        if metric not in stats:  # старый кэш не содержит новые KPI — пересчёт
+            stats = None
+    if stats is None:
         df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
         stats = build_stats(df)
     value = stats.get(metric)
@@ -271,6 +296,85 @@ async def _top_paths_graph(
     }
 
 
+async def _operations_dynamics(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    result = compute_operations_dynamics(df, granularity=str(config.get("granularity", "M")))
+    return {
+        "bars": [
+            {"x": str(row["bucket"]), "y": int(row["n_events"])}
+            for _, row in result.iterrows()
+        ],
+        "line": [
+            {"x": str(row["bucket"]), "y": float(row["events_per_case"])}
+            for _, row in result.iterrows()
+        ],
+        "bar_label": "Кол-во операций",
+        "line_label": "Кол-во операций на экземпляр",
+        "granularity": str(config.get("granularity", "M")),
+    }
+
+
+async def _events_per_case_histogram(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    hist = compute_events_per_case_histogram(df)
+    return {
+        "data": [
+            {"x": int(row["events_in_case"]), "y": int(row["n_cases"])}
+            for _, row in hist.iterrows()
+        ],
+        "x_label": "Кол-во операций в экземпляре",
+        "y_label": "Кол-во экземпляров",
+    }
+
+
+async def _case_flow_cumulative(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    flow = compute_case_flow(df, granularity=str(config.get("granularity", "M")))
+    return {
+        "inflow": [
+            {"x": str(row["bucket"]), "y": int(row["cum_started"])}
+            for _, row in flow.iterrows()
+        ],
+        "outflow": [
+            {"x": str(row["bucket"]), "y": int(row["cum_ended"])}
+            for _, row in flow.iterrows()
+        ],
+        "inflow_label": "Входящий поток",
+        "outflow_label": "Исходящий поток",
+        "granularity": str(config.get("granularity", "M")),
+    }
+
+
+async def _operations_summary_short(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    column = analytics_service.activity_column(config.get("activity_level", "raw"))
+    summary = compute_operation_summary_short(df, column)
+    limit = int(config.get("limit", 50))
+    return {
+        "rows": [
+            {
+                "activity": str(row["activity"]),
+                "pct_cases": float(row["pct_cases"]),
+                "avg_own_duration_seconds": float(row["avg_own_duration_seconds"]),
+                "rework_pct": float(row["rework_pct"]),
+            }
+            for _, row in summary.head(limit).iterrows()
+        ]
+    }
+
+
 async def _sla_compliance_table(
     db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
     event_filter: EventFilter | None,
@@ -287,6 +391,10 @@ async def _sla_compliance_table(
 _HANDLERS = {
     "kpi_card": _kpi_card,
     "monthly_dynamics": _monthly_dynamics,
+    "operations_dynamics": _operations_dynamics,
+    "events_per_case_histogram": _events_per_case_histogram,
+    "case_flow_cumulative": _case_flow_cumulative,
+    "operations_summary_short": _operations_summary_short,
     "bar_chart": _bar_or_line_chart,
     "line_chart": _bar_or_line_chart,
     "heatmap": _heatmap,
@@ -313,4 +421,7 @@ async def compute_widget_data(db: AsyncSession, widget: DashboardWidget) -> dict
             f"Виджет типа {widget.widget_type!r} пока не поддерживается"
         )
     event_filter = await _resolve_filter(db, widget, dashboard)
-    return await handler(db, virtual, widget.config, event_filter)
+    config = dict(widget.config or {})
+    if widget.widget_type in _GRANULARITY_WIDGETS and "granularity" not in config:
+        config["granularity"] = _dashboard_granularity(dashboard)
+    return await handler(db, virtual, config, event_filter)

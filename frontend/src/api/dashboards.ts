@@ -73,6 +73,21 @@ export async function deleteDashboard(dashboardId: number): Promise<void> {
   await apiClient.delete(`/dashboards/${dashboardId}`);
 }
 
+export async function updateDashboard(
+  dashboardId: number,
+  payload: {
+    name?: string;
+    description?: string | null;
+    global_filters?: Record<string, unknown>;
+  }
+): Promise<Dashboard> {
+  const { data } = await apiClient.patch<Dashboard>(
+    `/dashboards/${dashboardId}`,
+    payload
+  );
+  return data;
+}
+
 export async function addWidget(
   dashboardId: number,
   payload: WidgetCreatePayload

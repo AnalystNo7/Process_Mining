@@ -103,18 +103,85 @@ async def test_kpi_card_widget_data(client, analyst_user, db_session, tmp_path) 
 async def test_monthly_dynamics_widget_data(
     client, analyst_user, db_session, tmp_path
 ) -> None:
-    _, widgets = await _setup(
+    dashboard_id, _ = await _setup(
         client, analyst_user.headers, db_session, analyst_user.id, tmp_path
     )
-    widget = next(w for w in widgets if w["widget_type"] == "monthly_dynamics")
+    widget = await client.post(
+        f"/api/v1/dashboards/{dashboard_id}/widgets",
+        headers=analyst_user.headers,
+        json={"widget_type": "monthly_dynamics", "title": "Динамика", "config": {}},
+    )
     resp = await client.get(
-        f"/api/v1/widgets/{widget['id']}/data", headers=analyst_user.headers
+        f"/api/v1/widgets/{widget.json()['id']}/data", headers=analyst_user.headers
     )
     assert resp.status_code == 200
     data = resp.json()
     assert "data" in data
     assert "line_data" in data
     assert sum(point["y"] for point in data["data"]) == 60
+
+
+async def test_operations_dynamics_widget_data(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    dashboard_id, widgets = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    widget = next(w for w in widgets if w["widget_type"] == "operations_dynamics")
+    resp = await client.get(
+        f"/api/v1/widgets/{widget['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert sum(p["y"] for p in data["bars"]) == 60  # 15 кейсов × 4 события
+    assert data["line"][0]["y"] == 4.0  # ровно 4 операции на экземпляр
+
+
+async def test_events_per_case_histogram_widget_data(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    dashboard_id, widgets = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    widget = next(w for w in widgets if w["widget_type"] == "events_per_case_histogram")
+    resp = await client.get(
+        f"/api/v1/widgets/{widget['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["data"] == [{"x": 4, "y": 15}]
+
+
+async def test_case_flow_widget_data(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    dashboard_id, widgets = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    widget = next(w for w in widgets if w["widget_type"] == "case_flow_cumulative")
+    resp = await client.get(
+        f"/api/v1/widgets/{widget['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["inflow"][-1]["y"] == 15  # все 15 кейсов накопительно
+    assert data["outflow"][-1]["y"] == 15
+
+
+async def test_operations_summary_short_widget_data(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    dashboard_id, widgets = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    widget = next(w for w in widgets if w["widget_type"] == "operations_summary_short")
+    resp = await client.get(
+        f"/api/v1/widgets/{widget['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    rows = {r["activity"]: r for r in resp.json()["rows"]}
+    assert rows["Согласование"]["pct_cases"] == 100.0
+    assert rows["Согласование"]["rework_pct"] > 0
 
 
 async def test_bar_chart_widget_data(client, analyst_user, db_session, tmp_path) -> None:
@@ -140,12 +207,16 @@ async def test_bar_chart_widget_data(client, analyst_user, db_session, tmp_path)
 async def test_rework_table_widget_data(
     client, analyst_user, db_session, tmp_path
 ) -> None:
-    _, widgets = await _setup(
+    dashboard_id, _ = await _setup(
         client, analyst_user.headers, db_session, analyst_user.id, tmp_path
     )
-    widget = next(w for w in widgets if w["widget_type"] == "rework_table")
+    widget = await client.post(
+        f"/api/v1/dashboards/{dashboard_id}/widgets",
+        headers=analyst_user.headers,
+        json={"widget_type": "rework_table", "title": "Повторы", "config": {}},
+    )
     resp = await client.get(
-        f"/api/v1/widgets/{widget['id']}/data", headers=analyst_user.headers
+        f"/api/v1/widgets/{widget.json()['id']}/data", headers=analyst_user.headers
     )
     assert resp.status_code == 200
     rows = resp.json()["rows"]
@@ -156,12 +227,16 @@ async def test_rework_table_widget_data(
 async def test_top_paths_graph_widget_data(
     client, analyst_user, db_session, tmp_path
 ) -> None:
-    _, widgets = await _setup(
+    dashboard_id, _ = await _setup(
         client, analyst_user.headers, db_session, analyst_user.id, tmp_path
     )
-    widget = next(w for w in widgets if w["widget_type"] == "top_paths_graph")
+    widget = await client.post(
+        f"/api/v1/dashboards/{dashboard_id}/widgets",
+        headers=analyst_user.headers,
+        json={"widget_type": "top_paths_graph", "title": "Топ", "config": {"n_paths": 5}},
+    )
     resp = await client.get(
-        f"/api/v1/widgets/{widget['id']}/data", headers=analyst_user.headers
+        f"/api/v1/widgets/{widget.json()['id']}/data", headers=analyst_user.headers
     )
     assert resp.status_code == 200
     assert resp.json()["coverage"]["total_cases"] == 15

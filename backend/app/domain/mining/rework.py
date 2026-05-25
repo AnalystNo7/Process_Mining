@@ -89,6 +89,40 @@ def compute_operation_summary(
     return result.sort_values("n_cases", ascending=False).reset_index(drop=True)
 
 
+def compute_operation_summary_short(
+    df: pd.DataFrame, activity_col: str = "activity"
+) -> pd.DataFrame:
+    """Краткая сводка по операциям для виджета «Операции» на дашборде:
+    activity | pct_cases (% в экземплярах) | avg_own_duration_seconds (t avg) |
+    rework_pct (зацикленность). Сортировка по pct_cases убыв."""
+    columns = ["activity", "pct_cases", "avg_own_duration_seconds", "rework_pct"]
+    if len(df) == 0:
+        return pd.DataFrame(columns=columns)
+
+    total_cases = int(df["case_id"].nunique())
+    work = df.copy()
+    work["own_duration_sec"] = compute_own_duration(work)
+    base = (
+        work.groupby(activity_col)
+        .agg(
+            n_cases=("case_id", "nunique"),
+            avg_own_duration_seconds=("own_duration_sec", "mean"),
+        )
+        .reset_index()
+        .rename(columns={activity_col: "activity"})
+    )
+    base["pct_cases"] = (base["n_cases"] / total_cases * 100).round(2)
+    rework = compute_rework_per_operation(df, activity_col)[["activity", "rework_pct"]]
+    result = base.merge(rework, on="activity", how="left")
+    result["rework_pct"] = result["rework_pct"].fillna(0.0)
+    result["avg_own_duration_seconds"] = result["avg_own_duration_seconds"].round(2)
+    return (
+        result[columns]
+        .sort_values("pct_cases", ascending=False)
+        .reset_index(drop=True)
+    )
+
+
 def compute_global_rework_pct(df: pd.DataFrame, activity_col: str = "activity") -> float:
     """Общий процент повторов по всему датасету."""
     rework_df = compute_rework_per_operation(df, activity_col)

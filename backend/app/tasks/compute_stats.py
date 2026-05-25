@@ -28,6 +28,12 @@ def build_stats(df: pd.DataFrame) -> dict[str, Any]:
     case_duration = compute_case_duration(df)
     comparison = compute_duration_comparison(df)
     has_rows = len(df) > 0
+    first_case_started_at: str | None = None
+    last_case_started_at: str | None = None
+    if has_rows:
+        case_starts = df.groupby("case_id")["timestamp_start"].min()
+        first_case_started_at = case_starts.min().isoformat()
+        last_case_started_at = case_starts.max().isoformat()
     return {
         "total_cases": int(df["case_id"].nunique()) if has_rows else 0,
         "total_events": int(len(df)),
@@ -38,6 +44,8 @@ def build_stats(df: pd.DataFrame) -> dict[str, Any]:
             df["timestamp_start"].min().isoformat() if has_rows else None
         ),
         "period_end": df["timestamp_end"].max().isoformat() if has_rows else None,
+        "first_case_started_at": first_case_started_at,
+        "last_case_started_at": last_case_started_at,
         "avg_case_duration_seconds": _safe_float(
             case_duration["duration_seconds"].mean() if has_rows else None
         ),

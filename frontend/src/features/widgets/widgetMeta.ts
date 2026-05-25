@@ -8,6 +8,10 @@ export interface WidgetTypeOption {
 export const WIDGET_TYPES: WidgetTypeOption[] = [
   { value: 'kpi_card', label: 'KPI-карточка' },
   { value: 'monthly_dynamics', label: 'Динамика по месяцам' },
+  { value: 'operations_dynamics', label: 'Динамика количества операций' },
+  { value: 'events_per_case_histogram', label: 'Кол-во операций в экземпляре' },
+  { value: 'case_flow_cumulative', label: 'Входящий и исходящий поток' },
+  { value: 'operations_summary_short', label: 'Операции (краткая сводка)' },
   { value: 'bar_chart', label: 'Столбчатая диаграмма' },
   { value: 'line_chart', label: 'Линейный график' },
   { value: 'heatmap', label: 'Тепловая карта' },
@@ -25,21 +29,24 @@ export const WIDGET_TYPE_LABEL: Record<string, string> = Object.fromEntries(
 export interface KpiMetricOption {
   value: string;
   label: string;
-  format: 'number' | 'percent' | 'duration';
+  format: 'number' | 'percent' | 'duration' | 'date';
 }
 
 export const KPI_METRICS: KpiMetricOption[] = [
-  { value: 'total_cases', label: 'Всего кейсов', format: 'number' },
-  { value: 'total_events', label: 'Всего операций', format: 'number' },
-  { value: 'unique_activities', label: 'Уникальных операций', format: 'number' },
+  { value: 'total_cases', label: 'Экземпляры', format: 'number' },
+  { value: 'total_events', label: 'Операции', format: 'number' },
+  { value: 'unique_activities', label: 'Уникальные операции', format: 'number' },
   { value: 'unique_traces', label: 'Уникальных маршрутов', format: 'number' },
   { value: 'global_rework_pct', label: 'Доля переделок', format: 'percent' },
-  { value: 'variability_pct', label: 'Вариативность процесса', format: 'percent' },
+  { value: 'variability_pct', label: 'Вариативность путей', format: 'percent' },
+  { value: 'mean_occurrence_pct', label: 'Встречаемость операций', format: 'percent' },
   {
     value: 'avg_case_duration_seconds',
-    label: 'Средняя длительность кейса',
+    label: 'Средняя длительность',
     format: 'duration',
   },
+  { value: 'first_case_started_at', label: 'Начало процесса', format: 'date' },
+  { value: 'last_case_started_at', label: 'Конец процесса', format: 'date' },
 ];
 
 export const BAR_SOURCES: WidgetTypeOption[] = [

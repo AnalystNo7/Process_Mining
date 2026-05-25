@@ -276,6 +276,172 @@ function TopPaths({ data }: { data: { variants: VariantRow[] } }) {
   );
 }
 
+function OperationsDynamics({
+  data,
+}: {
+  data: { bars: XYPoint[]; line: XYPoint[]; bar_label: string; line_label: string };
+}) {
+  const traces = [
+    {
+      x: data.bars.map((p) => p.x),
+      y: data.bars.map((p) => p.y),
+      type: 'bar',
+      name: data.bar_label,
+      marker: { color: '#1677ff' },
+    },
+    {
+      x: data.line.map((p) => p.x),
+      y: data.line.map((p) => p.y),
+      type: 'scatter',
+      mode: 'lines+markers',
+      name: data.line_label,
+      yaxis: 'y2',
+      line: { color: '#13c2c2' },
+    },
+  ];
+  const layout: Partial<Layout> = {
+    ...BASE_LAYOUT,
+    showlegend: true,
+    legend: { orientation: 'h' },
+    yaxis: { title: { text: 'Кол-во операций' } },
+    yaxis2: { overlaying: 'y', side: 'right', title: { text: 'Операций на экз.' } },
+  };
+  return (
+    <Plot
+      data={traces as Data[]}
+      layout={layout}
+      style={PLOT_STYLE}
+      config={PLOT_CONFIG}
+      useResizeHandler
+    />
+  );
+}
+
+function EventsPerCaseHistogram({
+  data,
+}: {
+  data: { data: { x: number; y: number }[]; x_label: string; y_label: string };
+}) {
+  const trace = {
+    x: data.data.map((p) => p.x),
+    y: data.data.map((p) => p.y),
+    type: 'bar',
+    marker: { color: '#722ed1' },
+  };
+  const layout: Partial<Layout> = {
+    ...BASE_LAYOUT,
+    xaxis: { title: { text: data.x_label }, tickmode: 'linear' },
+    yaxis: { title: { text: data.y_label } },
+  };
+  return (
+    <Plot
+      data={[trace] as Data[]}
+      layout={layout}
+      style={PLOT_STYLE}
+      config={PLOT_CONFIG}
+      useResizeHandler
+    />
+  );
+}
+
+function CaseFlow({
+  data,
+}: {
+  data: {
+    inflow: XYPoint[];
+    outflow: XYPoint[];
+    inflow_label: string;
+    outflow_label: string;
+  };
+}) {
+  const traces = [
+    {
+      x: data.inflow.map((p) => p.x),
+      y: data.inflow.map((p) => p.y),
+      type: 'scatter',
+      mode: 'lines',
+      name: data.inflow_label,
+      fill: 'tozeroy',
+      line: { color: '#1677ff' },
+      fillcolor: 'rgba(22,119,255,0.2)',
+    },
+    {
+      x: data.outflow.map((p) => p.x),
+      y: data.outflow.map((p) => p.y),
+      type: 'scatter',
+      mode: 'lines',
+      name: data.outflow_label,
+      fill: 'tozeroy',
+      line: { color: '#f5222d' },
+      fillcolor: 'rgba(245,34,45,0.2)',
+    },
+  ];
+  const layout: Partial<Layout> = {
+    ...BASE_LAYOUT,
+    showlegend: true,
+    legend: { orientation: 'h' },
+  };
+  return (
+    <Plot
+      data={traces as Data[]}
+      layout={layout}
+      style={PLOT_STYLE}
+      config={PLOT_CONFIG}
+      useResizeHandler
+    />
+  );
+}
+
+interface OperationSummaryShortRow {
+  activity: string;
+  pct_cases: number;
+  avg_own_duration_seconds: number;
+  rework_pct: number;
+}
+
+function OperationsSummaryShort({
+  data,
+}: {
+  data: { rows: OperationSummaryShortRow[] };
+}) {
+  const columns: TableColumnsType<OperationSummaryShortRow> = [
+    { title: 'Операция', dataIndex: 'activity', key: 'activity', ellipsis: true },
+    {
+      title: '% в экз.',
+      dataIndex: 'pct_cases',
+      key: 'pct_cases',
+      width: 90,
+      align: 'right',
+      render: (value: number) => `${value.toFixed(1)}%`,
+    },
+    {
+      title: 't (avg)',
+      dataIndex: 'avg_own_duration_seconds',
+      key: 'avg',
+      width: 110,
+      align: 'right',
+      render: (value: number) => formatDuration(value),
+    },
+    {
+      title: 'Зацикл.',
+      dataIndex: 'rework_pct',
+      key: 'rework',
+      width: 90,
+      align: 'right',
+      render: (value: number) => `${value.toFixed(1)}%`,
+    },
+  ];
+  return (
+    <Table
+      rowKey="activity"
+      size="small"
+      columns={columns}
+      dataSource={data.rows}
+      pagination={{ pageSize: 12, hideOnSinglePage: true, size: 'small' }}
+    />
+  );
+}
+
 export function WidgetContent({
   type,
   data,
@@ -296,6 +462,14 @@ export function WidgetContent({
       return <BarOrLine data={data as never} mode="line" />;
     case 'monthly_dynamics':
       return <MonthlyDynamics data={data as never} />;
+    case 'operations_dynamics':
+      return <OperationsDynamics data={data as never} />;
+    case 'events_per_case_histogram':
+      return <EventsPerCaseHistogram data={data as never} />;
+    case 'case_flow_cumulative':
+      return <CaseFlow data={data as never} />;
+    case 'operations_summary_short':
+      return <OperationsSummaryShort data={data as never} />;
     case 'heatmap':
       return <Heatmap data={data as never} />;
     case 'rework_table':

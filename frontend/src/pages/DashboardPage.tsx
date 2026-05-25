@@ -4,8 +4,9 @@ import { Button, Empty, Spin, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { deleteWidget, getDashboard } from '@/api/dashboards';
+import { deleteWidget, getDashboard, updateDashboard } from '@/api/dashboards';
 import { AddWidgetModal } from '@/features/widgets/AddWidgetModal';
+import { OverviewFilterPanel } from '@/features/widgets/OverviewFilterPanel';
 import { WidgetCard } from '@/features/widgets/WidgetCard';
 import { getErrorMessage, notifyError, notifySuccess } from '@/lib/notify';
 
@@ -24,6 +25,16 @@ export function DashboardPage() {
     mutationFn: deleteWidget,
     onSuccess: () => {
       notifySuccess('Виджет удалён');
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', dashboardId] });
+    },
+    onError: (error) => notifyError(getErrorMessage(error)),
+  });
+
+  const updateFiltersMutation = useMutation({
+    mutationFn: (filters: Record<string, unknown>) =>
+      updateDashboard(dashboardId, { global_filters: filters }),
+    onSuccess: () => {
+      notifySuccess('Фильтры применены');
       void queryClient.invalidateQueries({ queryKey: ['dashboard', dashboardId] });
     },
     onError: (error) => notifyError(getErrorMessage(error)),
@@ -64,24 +75,35 @@ export function DashboardPage() {
         <div style={{ textAlign: 'center', padding: 48 }}>
           <Spin size="large" />
         </div>
-      ) : widgets.length === 0 ? (
-        <Empty description="На дашборде пока нет виджетов" />
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(12, 1fr)',
-            gap: 16,
-            alignItems: 'start',
-          }}
-        >
-          {widgets.map((widget) => (
-            <WidgetCard
-              key={widget.id}
-              widget={widget}
-              onDelete={deleteWidgetMutation.mutate}
-            />
-          ))}
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+          <OverviewFilterPanel
+            dashboard={dashboard}
+            onApply={updateFiltersMutation.mutate}
+            isApplying={updateFiltersMutation.isPending}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {widgets.length === 0 ? (
+              <Empty description="На дашборде пока нет виджетов" />
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(12, 1fr)',
+                  gap: 16,
+                  alignItems: 'start',
+                }}
+              >
+                {widgets.map((widget) => (
+                  <WidgetCard
+                    key={widget.id}
+                    widget={widget}
+                    onDelete={deleteWidgetMutation.mutate}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
