@@ -175,6 +175,7 @@ export function DashboardPage() {
                 layout={layout}
                 isDraggable={editing}
                 isResizable={editing}
+                resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
                 draggableHandle=".widget-drag-handle"
                 onLayoutChange={handleLayoutChange}
                 compactType="vertical"

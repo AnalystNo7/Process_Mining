@@ -104,23 +104,54 @@
   color: var(--ink-1);
 }
 
-/* react-grid-layout: ручка ресайза в углу виджета */
+/* react-grid-layout: 8 ручек ресайза (4 угла + 4 края), видны только в edit-режиме. */
 .react-resizable-handle {
   background-image: none !important;
-  width: 14px;
-  height: 14px;
-  right: 4px;
-  bottom: 4px;
-  cursor: se-resize;
+  position: absolute;
+  z-index: 2;
+  background: var(--gpc-blue);
+  border-radius: 2px;
+  opacity: 0.55;
+  transition: opacity .12s ease;
 }
 
-.react-resizable-handle::after {
-  content: '';
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid var(--ink-4);
-  border-bottom: 2px solid var(--ink-4);
+.react-grid-item:hover .react-resizable-handle,
+.react-grid-item.resizing .react-resizable-handle {
+  opacity: 0.95;
 }
+
+/* Углы — квадратик 10×10 */
+.react-resizable-handle-nw,
+.react-resizable-handle-ne,
+.react-resizable-handle-sw,
+.react-resizable-handle-se {
+  width: 10px;
+  height: 10px;
+}
+.react-resizable-handle-nw { top: 2px;    left: 2px;   cursor: nwse-resize; }
+.react-resizable-handle-ne { top: 2px;    right: 2px;  cursor: nesw-resize; }
+.react-resizable-handle-sw { bottom: 2px; left: 2px;   cursor: nesw-resize; }
+.react-resizable-handle-se { bottom: 2px; right: 2px;  cursor: nwse-resize; }
+
+/* Края — тонкая полоса по центру стороны */
+.react-resizable-handle-n,
+.react-resizable-handle-s {
+  width: 28px;
+  height: 6px;
+  left: 50%;
+  margin-left: -14px;
+  cursor: ns-resize;
+}
+.react-resizable-handle-n { top: 2px; }
+.react-resizable-handle-s { bottom: 2px; }
+
+.react-resizable-handle-e,
+.react-resizable-handle-w {
+  width: 6px;
+  height: 28px;
+  top: 50%;
+  margin-top: -14px;
+  cursor: ew-resize;
+}
+.react-resizable-handle-e { right: 2px; }
+.react-resizable-handle-w { left: 2px; }

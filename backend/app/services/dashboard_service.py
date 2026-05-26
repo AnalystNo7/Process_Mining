@@ -50,13 +50,13 @@ _DEFAULT_WIDGETS: list[dict[str, Any]] = [
      "grid_x": 0, "grid_y": 4, "grid_width": 12, "grid_height": 5},
     {"widget_type": "events_per_case_histogram", "title": "Кол-во операций в экземпляре",
      "config": {},
-     "grid_x": 0, "grid_y": 9, "grid_width": 4, "grid_height": 5},
+     "grid_x": 0, "grid_y": 9, "grid_width": 12, "grid_height": 5},
     {"widget_type": "case_flow_cumulative", "title": "Входящий и исходящий поток",
      "config": {},
-     "grid_x": 4, "grid_y": 9, "grid_width": 4, "grid_height": 5},
+     "grid_x": 0, "grid_y": 14, "grid_width": 12, "grid_height": 5},
     {"widget_type": "operations_summary_short", "title": "Операции",
      "config": {"activity_level": "raw", "limit": 50},
-     "grid_x": 8, "grid_y": 9, "grid_width": 4, "grid_height": 5},
+     "grid_x": 0, "grid_y": 19, "grid_width": 12, "grid_height": 6},
 ]
 
 
