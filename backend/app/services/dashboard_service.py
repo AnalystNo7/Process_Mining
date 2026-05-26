@@ -4,53 +4,59 @@ from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import EntityNotFoundError, PermissionDeniedError
+from app.core.exceptions import BusinessRuleError, EntityNotFoundError, PermissionDeniedError
 from app.db.models.dashboards import Dashboard, DashboardWidget
 from app.db.models.datasets import VirtualDataset
 from app.db.models.users import User
-from app.schemas.dashboards import DashboardCreate, DashboardUpdate, WidgetCreate, WidgetUpdate
+from app.schemas.dashboards import (
+    DashboardCreate,
+    DashboardLayoutUpdate,
+    DashboardUpdate,
+    WidgetCreate,
+    WidgetUpdate,
+)
 from app.services import audit_service
 
 # Виджеты дашборда «Обзор процесса» (см. T25 + макет из требований к экрану).
-# Сетка 12 столбцов; KPI-плитки сверху, динамика и боковые KPI в центре,
-# гистограмма + поток + таблица операций снизу.
+# Сетка 12 колонок, единица rowHeight≈60px на фронте: KPI 4×2 в двух рядах,
+# далее «Динамика» во всю ширину, снизу три равных виджета.
 _DEFAULT_WIDGETS: list[dict[str, Any]] = [
     {"widget_type": "kpi_card", "title": "Экземпляры",
      "config": {"metric": "total_cases", "format": "number"},
-     "grid_x": 0, "grid_y": 0, "grid_width": 2, "grid_height": 2},
+     "grid_x": 0, "grid_y": 0, "grid_width": 3, "grid_height": 2},
     {"widget_type": "kpi_card", "title": "Операции",
      "config": {"metric": "total_events", "format": "number"},
-     "grid_x": 2, "grid_y": 0, "grid_width": 2, "grid_height": 2},
+     "grid_x": 3, "grid_y": 0, "grid_width": 3, "grid_height": 2},
     {"widget_type": "kpi_card", "title": "Уникальные операции",
      "config": {"metric": "unique_activities", "format": "number"},
-     "grid_x": 4, "grid_y": 0, "grid_width": 2, "grid_height": 2},
+     "grid_x": 6, "grid_y": 0, "grid_width": 3, "grid_height": 2},
     {"widget_type": "kpi_card", "title": "Средняя длительность",
      "config": {"metric": "avg_case_duration_seconds", "format": "duration"},
-     "grid_x": 6, "grid_y": 0, "grid_width": 2, "grid_height": 2},
+     "grid_x": 9, "grid_y": 0, "grid_width": 3, "grid_height": 2},
     {"widget_type": "kpi_card", "title": "Начало процесса",
      "config": {"metric": "first_case_started_at", "format": "date"},
-     "grid_x": 8, "grid_y": 0, "grid_width": 2, "grid_height": 2},
+     "grid_x": 0, "grid_y": 2, "grid_width": 3, "grid_height": 2},
     {"widget_type": "kpi_card", "title": "Конец процесса",
      "config": {"metric": "last_case_started_at", "format": "date"},
-     "grid_x": 10, "grid_y": 0, "grid_width": 2, "grid_height": 2},
-    {"widget_type": "operations_dynamics", "title": "Динамика количества операций",
-     "config": {},
-     "grid_x": 0, "grid_y": 2, "grid_width": 8, "grid_height": 4},
+     "grid_x": 3, "grid_y": 2, "grid_width": 3, "grid_height": 2},
     {"widget_type": "kpi_card", "title": "Вариативность путей",
      "config": {"metric": "variability_pct", "format": "percent"},
-     "grid_x": 8, "grid_y": 2, "grid_width": 4, "grid_height": 2},
+     "grid_x": 6, "grid_y": 2, "grid_width": 3, "grid_height": 2},
     {"widget_type": "kpi_card", "title": "Встречаемость операций",
      "config": {"metric": "mean_occurrence_pct", "format": "percent"},
-     "grid_x": 8, "grid_y": 4, "grid_width": 4, "grid_height": 2},
+     "grid_x": 9, "grid_y": 2, "grid_width": 3, "grid_height": 2},
+    {"widget_type": "operations_dynamics", "title": "Динамика количества операций",
+     "config": {},
+     "grid_x": 0, "grid_y": 4, "grid_width": 12, "grid_height": 5},
     {"widget_type": "events_per_case_histogram", "title": "Кол-во операций в экземпляре",
      "config": {},
-     "grid_x": 0, "grid_y": 6, "grid_width": 4, "grid_height": 4},
+     "grid_x": 0, "grid_y": 9, "grid_width": 4, "grid_height": 5},
     {"widget_type": "case_flow_cumulative", "title": "Входящий и исходящий поток",
      "config": {},
-     "grid_x": 4, "grid_y": 6, "grid_width": 4, "grid_height": 4},
+     "grid_x": 4, "grid_y": 9, "grid_width": 4, "grid_height": 5},
     {"widget_type": "operations_summary_short", "title": "Операции",
      "config": {"activity_level": "raw", "limit": 50},
-     "grid_x": 8, "grid_y": 6, "grid_width": 4, "grid_height": 4},
+     "grid_x": 8, "grid_y": 9, "grid_width": 4, "grid_height": 5},
 ]
 
 
@@ -259,6 +265,32 @@ async def update_widget(
     await db.commit()
     await db.refresh(widget)
     return widget
+
+
+async def update_widget_layouts(
+    db: AsyncSession,
+    dashboard_id: int,
+    payload: DashboardLayoutUpdate,
+    actor: User,
+    request: Request | None = None,
+) -> list[DashboardWidget]:
+    """Batch-обновление позиций виджетов одного дашборда после drag/resize.
+    Одна транзакция, проверка владения дашбордом и принадлежности виджетов."""
+    dashboard, widgets = await get_dashboard(db, dashboard_id)
+    await _require_owner(dashboard, actor)
+    by_id = {w.id: w for w in widgets}
+    for item in payload.widgets:
+        widget = by_id.get(item.id)
+        if widget is None:
+            raise BusinessRuleError(
+                f"Виджет id={item.id} не принадлежит дашборду id={dashboard_id}"
+            )
+        widget.grid_x = item.grid_x
+        widget.grid_y = item.grid_y
+        widget.grid_width = item.grid_width
+        widget.grid_height = item.grid_height
+    await db.commit()
+    return widgets
 
 
 async def delete_widget(

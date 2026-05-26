@@ -15,6 +15,7 @@ from app.db.session import get_db
 from app.schemas.dashboards import (
     DashboardBrief,
     DashboardCreate,
+    DashboardLayoutUpdate,
     DashboardList,
     DashboardResponse,
     DashboardUpdate,
@@ -110,6 +111,32 @@ async def update_dashboard(
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     except PermissionDeniedError as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
+    return _to_response(dashboard, widgets)
+
+
+@router.patch(
+    "/dashboards/{dashboard_id}/widgets/layout",
+    response_model=DashboardResponse,
+)
+async def update_widget_layouts(
+    dashboard_id: int,
+    payload: DashboardLayoutUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> DashboardResponse:
+    """Batch-обновление координат виджетов после drag/resize."""
+    try:
+        await dashboard_service.update_widget_layouts(
+            db, dashboard_id, payload, user, request
+        )
+        dashboard, widgets = await dashboard_service.get_dashboard(db, dashboard_id)
+    except EntityNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except PermissionDeniedError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
+    except BusinessRuleError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     return _to_response(dashboard, widgets)
 
 

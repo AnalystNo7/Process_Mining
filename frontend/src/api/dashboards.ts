@@ -103,6 +103,25 @@ export async function deleteWidget(widgetId: number): Promise<void> {
   await apiClient.delete(`/widgets/${widgetId}`);
 }
 
+export interface WidgetLayoutItem {
+  id: number;
+  grid_x: number;
+  grid_y: number;
+  grid_width: number;
+  grid_height: number;
+}
+
+export async function updateDashboardLayout(
+  dashboardId: number,
+  items: WidgetLayoutItem[]
+): Promise<Dashboard> {
+  const { data } = await apiClient.patch<Dashboard>(
+    `/dashboards/${dashboardId}/widgets/layout`,
+    { widgets: items }
+  );
+  return data;
+}
+
 export async function getWidgetData(
   widgetId: number
 ): Promise<Record<string, unknown>> {

@@ -405,7 +405,13 @@ function OperationsSummaryShort({
   data: { rows: OperationSummaryShortRow[] };
 }) {
   const columns: TableColumnsType<OperationSummaryShortRow> = [
-    { title: 'Операция', dataIndex: 'activity', key: 'activity', ellipsis: true },
+    {
+      title: 'Операция',
+      dataIndex: 'activity',
+      key: 'activity',
+      width: '45%',
+      onCell: () => ({ style: { whiteSpace: 'normal', wordBreak: 'break-word' } }),
+    },
     {
       title: '% в экз.',
       dataIndex: 'pct_cases',

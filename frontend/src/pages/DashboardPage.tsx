@@ -1,25 +1,58 @@
-import { ArrowLeftOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  ArrowLeftOutlined,
+  CheckOutlined,
+  EditOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Empty, Spin, Typography } from 'antd';
-import { useState } from 'react';
+import { Button, Empty, Spin, Space, Typography } from 'antd';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import GridLayout, { type Layout } from 'react-grid-layout';
 import { Link, useParams } from 'react-router-dom';
 
-import { deleteWidget, getDashboard, updateDashboard } from '@/api/dashboards';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
+
+import {
+  deleteWidget,
+  getDashboard,
+  updateDashboard,
+  updateDashboardLayout,
+  type WidgetLayoutItem,
+} from '@/api/dashboards';
 import { AddWidgetModal } from '@/features/widgets/AddWidgetModal';
 import { OverviewFilterPanel } from '@/features/widgets/OverviewFilterPanel';
 import { WidgetCard } from '@/features/widgets/WidgetCard';
 import { getErrorMessage, notifyError, notifySuccess } from '@/lib/notify';
+
+const GRID_COLS = 12;
+const ROW_HEIGHT = 60;
+const GRID_MARGIN: [number, number] = [16, 16];
+const GRID_PADDING: [number, number] = [0, 0];
 
 export function DashboardPage() {
   const params = useParams();
   const dashboardId = Number(params.dashboardId);
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [gridWidth, setGridWidth] = useState(1200);
+  const gridContainerRef = useRef<HTMLDivElement | null>(null);
 
   const { data: dashboard, isLoading } = useQuery({
     queryKey: ['dashboard', dashboardId],
     queryFn: () => getDashboard(dashboardId),
   });
+
+  useEffect(() => {
+    if (!gridContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w && Math.abs(w - gridWidth) > 1) setGridWidth(w);
+    });
+    observer.observe(gridContainerRef.current);
+    return () => observer.disconnect();
+  }, [gridWidth]);
 
   const deleteWidgetMutation = useMutation({
     mutationFn: deleteWidget,
@@ -41,9 +74,50 @@ export function DashboardPage() {
     onError: (error) => notifyError(getErrorMessage(error)),
   });
 
-  const widgets = [...(dashboard?.widgets ?? [])].sort(
-    (a, b) => a.grid_y - b.grid_y || a.grid_x - b.grid_x
+  const updateLayoutMutation = useMutation({
+    mutationFn: (items: WidgetLayoutItem[]) =>
+      updateDashboardLayout(dashboardId, items),
+    onError: (error) => notifyError(getErrorMessage(error)),
+  });
+
+  const widgets = useMemo(() => dashboard?.widgets ?? [], [dashboard?.widgets]);
+  const layout: Layout[] = useMemo(
+    () =>
+      widgets.map((w) => ({
+        i: String(w.id),
+        x: w.grid_x,
+        y: w.grid_y,
+        w: w.grid_width,
+        h: w.grid_height,
+        minW: 2,
+        minH: 2,
+      })),
+    [widgets]
   );
+
+  const flushTimer = useRef<number | null>(null);
+  const handleLayoutChange = (next: Layout[]) => {
+    if (!editing) return;
+    const items: WidgetLayoutItem[] = next.map((l) => ({
+      id: Number(l.i),
+      grid_x: l.x,
+      grid_y: l.y,
+      grid_width: l.w,
+      grid_height: l.h,
+    }));
+    if (flushTimer.current !== null) window.clearTimeout(flushTimer.current);
+    flushTimer.current = window.setTimeout(() => {
+      updateLayoutMutation.mutate(items);
+    }, 400);
+  };
+
+  const toggleEditing = () => {
+    if (editing && flushTimer.current !== null) {
+      window.clearTimeout(flushTimer.current);
+      flushTimer.current = null;
+    }
+    setEditing((v) => !v);
+  };
 
   return (
     <div>
@@ -63,13 +137,22 @@ export function DashboardPage() {
         <Typography.Title level={3} style={{ margin: 0 }}>
           {dashboard?.name ?? 'Дашборд'}
         </Typography.Title>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setAddOpen(true)}
-        >
-          Добавить виджет
-        </Button>
+        <Space>
+          <Button
+            icon={editing ? <CheckOutlined /> : <EditOutlined />}
+            type={editing ? 'primary' : 'default'}
+            onClick={toggleEditing}
+          >
+            {editing ? 'Завершить редактирование' : 'Редактировать'}
+          </Button>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setAddOpen(true)}
+          >
+            Добавить виджет
+          </Button>
+        </Space>
       </div>
 
       {isLoading ? (
@@ -83,26 +166,34 @@ export function DashboardPage() {
             onApply={updateFiltersMutation.mutate}
             isApplying={updateFiltersMutation.isPending}
           />
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: 1, minWidth: 0 }} ref={gridContainerRef}>
             {widgets.length === 0 ? (
               <Empty description="На дашборде пока нет виджетов" />
             ) : (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(12, 1fr)',
-                  gap: 16,
-                  alignItems: 'start',
-                }}
+              <GridLayout
+                className="layout"
+                cols={GRID_COLS}
+                rowHeight={ROW_HEIGHT}
+                margin={GRID_MARGIN}
+                containerPadding={GRID_PADDING}
+                width={gridWidth}
+                layout={layout}
+                isDraggable={editing}
+                isResizable={editing}
+                draggableHandle=".widget-drag-handle"
+                onLayoutChange={handleLayoutChange}
+                compactType="vertical"
               >
                 {widgets.map((widget) => (
-                  <WidgetCard
-                    key={widget.id}
-                    widget={widget}
-                    onDelete={deleteWidgetMutation.mutate}
-                  />
+                  <div key={String(widget.id)}>
+                    <WidgetCard
+                      widget={widget}
+                      onDelete={deleteWidgetMutation.mutate}
+                      editing={editing}
+                    />
+                  </div>
                 ))}
-              </div>
+              </GridLayout>
             )}
           </div>
         </div>

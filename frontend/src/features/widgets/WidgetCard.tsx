@@ -1,4 +1,4 @@
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, DragOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { Button, Card, Empty, Popconfirm, Spin } from 'antd';
 
@@ -9,22 +9,41 @@ import { WidgetContent } from './WidgetContent';
 export function WidgetCard({
   widget,
   onDelete,
+  editing = false,
 }: {
   widget: Widget;
   onDelete: (id: number) => void;
+  editing?: boolean;
 }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['widget-data', widget.id],
     queryFn: () => getWidgetData(widget.id),
   });
 
-  const span = Math.min(Math.max(widget.grid_width, 3), 12);
-
   return (
     <Card
       size="small"
-      title={widget.title}
-      style={{ gridColumn: `span ${span}` }}
+      title={
+        <span
+          className={editing ? 'widget-drag-handle' : undefined}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: editing ? 'move' : 'default',
+            userSelect: 'none',
+          }}
+        >
+          {editing ? <DragOutlined style={{ color: '#8c8c8c' }} /> : null}
+          {widget.title}
+        </span>
+      }
+      style={{
+        width: '100%',
+        height: '100%',
+        outline: editing ? '1px dashed #1677ff' : undefined,
+      }}
+      styles={{ body: { height: 'calc(100% - 40px)', overflow: 'auto' } }}
       extra={
         <Popconfirm
           title="Удалить виджет?"

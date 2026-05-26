@@ -84,3 +84,15 @@ class DashboardBrief(BaseModel):
 class DashboardList(BaseModel):
     items: list[DashboardBrief]
     total: int
+
+
+class WidgetLayoutItem(BaseModel):
+    id: int
+    grid_x: int = Field(ge=0, le=11)
+    grid_y: int = Field(ge=0)
+    grid_width: int = Field(ge=1, le=12)
+    grid_height: int = Field(ge=1)
+
+
+class DashboardLayoutUpdate(BaseModel):
+    widgets: list[WidgetLayoutItem]
