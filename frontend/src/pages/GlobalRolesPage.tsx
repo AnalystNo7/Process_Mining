@@ -12,7 +12,6 @@ import {
   Switch,
   Table,
   Tag,
-  Typography,
   type TableColumnsType,
 } from 'antd';
 import { useState } from 'react';
@@ -139,32 +138,29 @@ export function GlobalRolesPage() {
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 8,
-        }}
-      >
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Глобальные шаблоны ролей
-        </Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          Новая роль
-        </Button>
+      <div className="page-head">
+        <div>
+          <h1>Глобальные шаблоны ролей</h1>
+          <div className="page-sub">
+            Применяются как стартовая точка при создании новых проектов. Существующие
+            проекты не меняются.
+          </div>
+        </div>
+        <div className="page-head-actions">
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            Новая роль
+          </Button>
+        </div>
       </div>
-      <Typography.Paragraph type="secondary">
-        Применяются как стартовая точка при создании новых проектов. Существующие
-        проекты не меняются.
-      </Typography.Paragraph>
-      <Table
-        rowKey="id"
-        loading={isLoading}
-        columns={columns}
-        dataSource={data?.items ?? []}
-        pagination={{ pageSize: 20, hideOnSinglePage: true }}
-      />
+      <div className="card">
+        <Table
+          rowKey="id"
+          loading={isLoading}
+          columns={columns}
+          dataSource={data?.items ?? []}
+          pagination={{ pageSize: 20, hideOnSinglePage: true }}
+        />
+      </div>
       <Modal
         title={editing ? 'Изменить роль' : 'Новая роль'}
         open={modalOpen}

@@ -23,6 +23,7 @@ export function WidgetCard({
   return (
     <Card
       size="small"
+      className="widget-card"
       title={
         <span
           className={editing ? 'widget-drag-handle' : undefined}
@@ -34,14 +35,14 @@ export function WidgetCard({
             userSelect: 'none',
           }}
         >
-          {editing ? <DragOutlined style={{ color: '#8c8c8c' }} /> : null}
+          {editing ? <DragOutlined style={{ color: 'var(--ink-4)' }} /> : null}
           {widget.title}
         </span>
       }
       style={{
         width: '100%',
         height: '100%',
-        outline: editing ? '1px dashed #1677ff' : undefined,
+        outline: editing ? '1px dashed var(--gpc-blue)' : undefined,
       }}
       styles={{ body: { height: 'calc(100% - 40px)', overflow: 'auto' } }}
       extra={

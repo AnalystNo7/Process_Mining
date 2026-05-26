@@ -1,4 +1,4 @@
-import { Card, Descriptions, Typography } from 'antd';
+import { Card, Descriptions } from 'antd';
 
 import { useAuthStore } from '@/stores/authStore';
 
@@ -7,8 +7,13 @@ export function MePage() {
 
   return (
     <div>
-      <Typography.Title level={3}>Профиль</Typography.Title>
-      <Card>
+      <div className="page-head">
+        <div>
+          <h1>Профиль</h1>
+          <div className="page-sub">Данные вашей учётной записи.</div>
+        </div>
+      </div>
+      <Card className="card">
         <Descriptions column={1}>
           <Descriptions.Item label="Логин">{user?.username ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="ФИО">{user?.full_name ?? '—'}</Descriptions.Item>

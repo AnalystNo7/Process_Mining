@@ -12,7 +12,6 @@ import {
   Switch,
   Table,
   Tag,
-  Typography,
   type TableColumnsType,
 } from 'antd';
 import { useState } from 'react';
@@ -193,28 +192,26 @@ export function AdminUsersPage() {
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 16,
-        }}
-      >
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Пользователи
-        </Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          Новый пользователь
-        </Button>
+      <div className="page-head">
+        <div>
+          <h1>Пользователи</h1>
+          <div className="page-sub">Учётные записи и их роли.</div>
+        </div>
+        <div className="page-head-actions">
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            Новый пользователь
+          </Button>
+        </div>
       </div>
-      <Table
-        rowKey="id"
-        loading={isLoading}
-        columns={columns}
-        dataSource={data?.items ?? []}
-        pagination={{ pageSize: 20, hideOnSinglePage: true }}
-      />
+      <div className="card">
+        <Table
+          rowKey="id"
+          loading={isLoading}
+          columns={columns}
+          dataSource={data?.items ?? []}
+          pagination={{ pageSize: 20, hideOnSinglePage: true }}
+        />
+      </div>
       <Modal
         title={editing ? 'Изменить пользователя' : 'Новый пользователь'}
         open={modalOpen}

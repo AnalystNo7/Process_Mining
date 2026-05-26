@@ -1,0 +1,126 @@
+/* Подстройка глобальных AntD-компонентов под GPC. */
+
+:where(.ant-card) {
+  border-radius: var(--r-lg);
+  border-color: var(--line);
+}
+
+:where(.ant-card.card) {
+  box-shadow: var(--shadow-card);
+}
+
+:where(.ant-table) {
+  font-size: 13px;
+}
+
+:where(.ant-table-thead > tr > th) {
+  background: var(--line-2);
+  color: var(--ink-2);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: .2px;
+  border-bottom: 1px solid var(--line);
+}
+
+:where(.ant-table-tbody > tr > td) {
+  border-bottom: 1px solid var(--line-2);
+}
+
+:where(.ant-table-tbody > tr:hover > td) {
+  background: var(--gpc-sky-50) !important;
+}
+
+:where(.ant-btn) {
+  border-radius: var(--r-md);
+  font-weight: 500;
+  height: var(--h-ctrl);
+}
+
+:where(.ant-btn-sm) {
+  height: var(--h-ctrl-sm);
+}
+
+:where(.ant-btn-primary) {
+  background: var(--gpc-blue);
+  border-color: var(--gpc-blue);
+  box-shadow: none;
+}
+
+:where(.ant-btn-primary:not(:disabled):hover) {
+  background: var(--gpc-blue-700);
+  border-color: var(--gpc-blue-700);
+}
+
+:where(.ant-input, .ant-input-affix-wrapper, .ant-select-selector, .ant-picker) {
+  border-radius: var(--r-md);
+  border-color: var(--line);
+}
+
+:where(.ant-input-affix-wrapper:focus-within, .ant-input:focus) {
+  border-color: var(--gpc-blue);
+  box-shadow: 0 0 0 2px rgba(0, 121, 194, .15);
+}
+
+:where(.ant-slider-track) {
+  background: var(--gpc-blue);
+}
+
+:where(.ant-slider-handle::after) {
+  box-shadow: 0 0 0 2px var(--gpc-blue) !important;
+}
+
+:where(.ant-segmented-item-selected) {
+  background: var(--gpc-blue);
+  color: #fff;
+}
+
+:where(.ant-segmented-item-selected .ant-segmented-item-label) {
+  color: #fff;
+}
+
+:where(.ant-tag) {
+  border-radius: 999px;
+  padding: 0 10px;
+  font-weight: 500;
+}
+
+:where(.ant-modal-content) {
+  border-radius: var(--r-lg);
+}
+
+:where(.ant-modal-header) {
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+
+:where(.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn) {
+  color: var(--gpc-blue);
+}
+
+:where(.ant-tabs-ink-bar) {
+  background: var(--gpc-blue);
+}
+
+:where(.ant-typography) {
+  color: var(--ink-1);
+}
+
+/* react-grid-layout: ручка ресайза в углу виджета */
+.react-resizable-handle {
+  background-image: none !important;
+  width: 14px;
+  height: 14px;
+  right: 4px;
+  bottom: 4px;
+  cursor: se-resize;
+}
+
+.react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink-4);
+  border-bottom: 2px solid var(--ink-4);
+}

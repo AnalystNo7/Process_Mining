@@ -1,4 +1,4 @@
-import { Empty, Statistic, Table, Tag, Typography, type TableColumnsType } from 'antd';
+import { Empty, Table, Tag, Typography, type TableColumnsType } from 'antd';
 import type { Data, Layout } from 'plotly.js';
 
 import type { CytoscapeElement } from '@/api/analytics';
@@ -458,9 +458,7 @@ export function WidgetContent({
   switch (type) {
     case 'kpi_card': {
       const kpi = data as { formatted: string };
-      return (
-        <Statistic value={kpi.formatted} valueStyle={{ fontSize: 32 }} />
-      );
+      return <div className="gpc-kpi" title={kpi.formatted}>{kpi.formatted}</div>;
     }
     case 'bar_chart':
       return <BarOrLine data={data as never} mode="bar" />;

@@ -5,7 +5,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Empty, Spin, Space, Typography } from 'antd';
+import { Button, Empty, Spin, Space } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import GridLayout, { type Layout } from 'react-grid-layout';
 import { Link, useParams } from 'react-router-dom';
@@ -126,33 +126,28 @@ export function DashboardPage() {
           К виртуальному датасету
         </Button>
       </Link>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          margin: '8px 0 16px',
-        }}
-      >
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {dashboard?.name ?? 'Дашборд'}
-        </Typography.Title>
-        <Space>
-          <Button
-            icon={editing ? <CheckOutlined /> : <EditOutlined />}
-            type={editing ? 'primary' : 'default'}
-            onClick={toggleEditing}
-          >
-            {editing ? 'Завершить редактирование' : 'Редактировать'}
-          </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setAddOpen(true)}
-          >
-            Добавить виджет
-          </Button>
-        </Space>
+      <div className="page-head">
+        <div>
+          <h1>{dashboard?.name ?? 'Дашборд'}</h1>
+        </div>
+        <div className="page-head-actions">
+          <Space>
+            <Button
+              icon={editing ? <CheckOutlined /> : <EditOutlined />}
+              type={editing ? 'primary' : 'default'}
+              onClick={toggleEditing}
+            >
+              {editing ? 'Завершить редактирование' : 'Редактировать'}
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setAddOpen(true)}
+            >
+              Добавить виджет
+            </Button>
+          </Space>
+        </div>
       </div>
 
       {isLoading ? (

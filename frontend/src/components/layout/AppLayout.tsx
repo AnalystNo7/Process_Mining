@@ -1,19 +1,35 @@
-import { Layout } from 'antd';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import { AppHeader } from './AppHeader';
 import { AppSider } from './AppSider';
 
+const STORAGE_KEY = 'gpc:sidebar:collapsed';
+
 export function AppLayout() {
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [collapsed]);
+
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <div className="app" data-sidebar={collapsed ? 'collapsed' : 'expanded'}>
+      <AppSider collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
       <AppHeader />
-      <Layout>
-        <AppSider />
-        <Layout.Content style={{ padding: 24, overflow: 'auto' }}>
-          <Outlet />
-        </Layout.Content>
-      </Layout>
-    </Layout>
+      <main className="main">
+        <Outlet />
+      </main>
+    </div>
   );
 }

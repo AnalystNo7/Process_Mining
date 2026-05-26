@@ -1,6 +1,6 @@
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Card, Descriptions, Tabs, Typography } from 'antd';
+import { Button, Card, Descriptions, Tabs } from 'antd';
 import { Link, useParams } from 'react-router-dom';
 
 import { getProject } from '@/api/projects';
@@ -25,10 +25,15 @@ export function ProjectDetailPage() {
           К списку проектов
         </Button>
       </Link>
-      <Typography.Title level={3} style={{ marginTop: 8 }}>
-        {project?.name ?? 'Проект'}
-      </Typography.Title>
-      <Card size="small" style={{ marginBottom: 16 }}>
+      <div className="page-head">
+        <div>
+          <h1>{project?.name ?? 'Проект'}</h1>
+          {project?.description && (
+            <div className="page-sub">{project.description}</div>
+          )}
+        </div>
+      </div>
+      <Card size="small" className="card" style={{ marginBottom: 16 }}>
         <Descriptions column={2} size="small">
           <Descriptions.Item label="Описание">
             {project?.description ?? '—'}

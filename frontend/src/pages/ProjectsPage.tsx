@@ -9,7 +9,6 @@ import {
   Space,
   Table,
   Tag,
-  Typography,
   type TableColumnsType,
 } from 'antd';
 import { useState } from 'react';
@@ -144,28 +143,26 @@ export function ProjectsPage() {
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 16,
-        }}
-      >
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          Проекты
-        </Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          Новый проект
-        </Button>
+      <div className="page-head">
+        <div>
+          <h1>Проекты</h1>
+          <div className="page-sub">Список проектов, к которым у вас есть доступ.</div>
+        </div>
+        <div className="page-head-actions">
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            Новый проект
+          </Button>
+        </div>
       </div>
-      <Table
-        rowKey="id"
-        loading={isLoading}
-        columns={columns}
-        dataSource={data?.items ?? []}
-        pagination={{ pageSize: 20, hideOnSinglePage: true }}
-      />
+      <div className="card">
+        <Table
+          rowKey="id"
+          loading={isLoading}
+          columns={columns}
+          dataSource={data?.items ?? []}
+          pagination={{ pageSize: 20, hideOnSinglePage: true }}
+        />
+      </div>
       <Modal
         title={editing ? 'Изменить проект' : 'Новый проект'}
         open={modalOpen}

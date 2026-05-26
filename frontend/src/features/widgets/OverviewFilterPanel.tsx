@@ -71,7 +71,12 @@ export function OverviewFilterPanel({
   };
 
   return (
-    <Card size="small" title="Фильтры" style={{ width: 280, flexShrink: 0 }}>
+    <Card
+      size="small"
+      title="Фильтры"
+      className="card"
+      style={{ width: 280, flexShrink: 0 }}
+    >
       <Form layout="vertical" size="small">
         <Form.Item label="Кол-во операций в пути" style={{ marginBottom: 16 }}>
           <Slider

@@ -3,7 +3,6 @@ import {
   Input,
   Table,
   Tag,
-  Typography,
   type TableColumnsType,
 } from 'antd';
 import { useState } from 'react';
@@ -62,16 +61,24 @@ export function AuditLogPage() {
 
   return (
     <div>
-      <Typography.Title level={3}>Журнал действий</Typography.Title>
-      <Input.Search
-        placeholder="Фильтр по действию (например, project.create)"
-        allowClear
-        style={{ maxWidth: 360, marginBottom: 16 }}
-        onSearch={(value) => {
-          setPage(1);
-          setAction(value.trim());
-        }}
-      />
+      <div className="page-head">
+        <div>
+          <h1>Журнал действий</h1>
+          <div className="page-sub">Аудит изменений и событий в системе.</div>
+        </div>
+        <div className="page-head-actions">
+          <Input.Search
+            placeholder="Фильтр по действию (например, project.create)"
+            allowClear
+            style={{ width: 320 }}
+            onSearch={(value) => {
+              setPage(1);
+              setAction(value.trim());
+            }}
+          />
+        </div>
+      </div>
+      <div className="card">
       <Table
         rowKey="id"
         loading={isLoading}
@@ -93,6 +100,7 @@ export function AuditLogPage() {
           onChange: setPage,
         }}
       />
+      </div>
     </div>
   );
 }

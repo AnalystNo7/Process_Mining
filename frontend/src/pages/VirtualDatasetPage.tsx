@@ -1,6 +1,7 @@
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Tabs, Typography } from 'antd';
+import { Button } from 'antd';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { getVirtualDataset } from '@/api/virtualDatasets';
@@ -9,10 +10,20 @@ import { CasesTab } from '@/features/analytics/CasesTab';
 import { ProcessGraphTab } from '@/features/analytics/ProcessGraphTab';
 import { DashboardsTab } from '@/features/dashboards/DashboardsTab';
 
+type TabKey = 'dashboards' | 'graph' | 'cases' | 'annotations';
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'dashboards', label: 'Дашборды' },
+  { key: 'graph', label: 'Процесс' },
+  { key: 'cases', label: 'Кейсы' },
+  { key: 'annotations', label: 'Аннотации' },
+];
+
 export function VirtualDatasetPage() {
   const params = useParams();
   const projectId = Number(params.projectId);
   const vdId = Number(params.vdId);
+  const [active, setActive] = useState<TabKey>('dashboards');
 
   const { data: vd } = useQuery({
     queryKey: ['vd', vdId],
@@ -28,37 +39,33 @@ export function VirtualDatasetPage() {
           К проекту
         </Button>
       </Link>
-      <Typography.Title level={3} style={{ margin: '8px 0 16px' }}>
-        {vdName}
-      </Typography.Title>
+      <div className="page-head">
+        <div>
+          <h1>{vdName}</h1>
+        </div>
+      </div>
 
-      <Tabs
-        defaultActiveKey="dashboards"
-        items={[
-          {
-            key: 'dashboards',
-            label: 'Дашборды',
-            children: <DashboardsTab projectId={projectId} vdId={vdId} />,
-          },
-          {
-            key: 'graph',
-            label: 'Процесс',
-            children: (
-              <ProcessGraphTab projectId={projectId} vdId={vdId} vdName={vdName} />
-            ),
-          },
-          {
-            key: 'cases',
-            label: 'Кейсы',
-            children: <CasesTab projectId={projectId} vdId={vdId} />,
-          },
-          {
-            key: 'annotations',
-            label: 'Аннотации',
-            children: <AnnotationsTab vdId={vdId} />,
-          },
-        ]}
-      />
+      <div className="tabs" role="tablist" aria-label="Разделы датасета">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            role="tab"
+            aria-selected={active === tab.key}
+            onClick={() => setActive(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div role="tabpanel">
+        {active === 'dashboards' && <DashboardsTab projectId={projectId} vdId={vdId} />}
+        {active === 'graph' && (
+          <ProcessGraphTab projectId={projectId} vdId={vdId} vdName={vdName} />
+        )}
+        {active === 'cases' && <CasesTab projectId={projectId} vdId={vdId} />}
+        {active === 'annotations' && <AnnotationsTab vdId={vdId} />}
+      </div>
     </div>
   );
 }

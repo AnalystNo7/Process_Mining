@@ -1,0 +1,59 @@
+/* Дизайн-токены «Газпром ЦПС» — палитра, шрифты, радиусы, тени. */
+
+:root {
+  /* Брендовые цвета */
+  --gpc-blue: #0079C2;
+  --gpc-blue-700: #0668A8;
+  --gpc-blue-800: #08568A;
+  --gpc-blue-900: #08416B;
+  --gpc-sky: #D7F0FA;
+  --gpc-sky-50: #EAF6FC;
+  --gpc-orange: #FF6919;
+  --gpc-orange-600: #E55C12;
+
+  /* Семантика */
+  --ok: #1F9D5E;
+  --warn: #E89A14;
+  --err: #D43232;
+
+  /* Нейтрали */
+  --bg: #F2F5F8;
+  --surface: #FFFFFF;
+  --line: #E4E8EC;
+  --line-2: #EEF1F4;
+  --ink-1: #11202E;
+  --ink-2: #3B4A58;
+  --ink-3: #6B7785;
+  --ink-4: #9AA4AF;
+
+  /* Радиусы */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+
+  /* Тени */
+  --shadow-card: 0 1px 2px rgba(11, 31, 51, .04), 0 6px 18px rgba(11, 31, 51, .06);
+  --shadow-pop:  0 10px 30px rgba(11, 31, 51, .12);
+
+  /* Типографика */
+  --font-base: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  --font-head: 'PT Sans Narrow', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+
+  /* Высоты управляющих элементов */
+  --h-ctrl: 36px;
+  --h-ctrl-sm: 28px;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--ink-1);
+  font-family: var(--font-base);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
