@@ -39,6 +39,7 @@ def _to_response(
         global_filters=dashboard.global_filters,
         applied_slice_id=dashboard.applied_slice_id,
         layout=dashboard.layout,
+        template_kind=dashboard.template_kind,
         created_by=dashboard.created_by,
         created_at=dashboard.created_at,
         widgets=[WidgetResponse.model_validate(w) for w in widgets],

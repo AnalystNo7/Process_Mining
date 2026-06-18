@@ -17,46 +17,67 @@ from app.schemas.dashboards import (
 )
 from app.services import audit_service
 
-# Виджеты дашборда «Обзор процесса» (см. T25 + макет из требований к экрану).
-# Сетка 12 колонок, единица rowHeight≈60px на фронте: KPI 4×2 в двух рядах,
-# далее «Динамика» во всю ширину, снизу три равных виджета.
+# Каркас вкладочного дашборда (T41, REQ §6.7).
+# Структура «Стандартные метрики / Обзор / Процесс×5 / Детали×3» — 10 вкладок
+# в виде дерева. Подвкладки именуются через точку: `process.duration` и т.п.
+# Эта же таксономия используется на фронте (см. standardPmTabs.ts).
+STANDARD_PM_TAB_KEYS: tuple[str, ...] = (
+    "standard_metrics",
+    "overview",
+    "process.process",
+    "process.duration",
+    "process.rework",
+    "process.paths",
+    "process.distribution",
+    "details.cases",
+    "details.operations",
+    "details.dataset",
+)
+
+# Виджеты обзорной вкладки дашборда. Сетка 12 колонок, единица rowHeight≈60px
+# на фронте: KPI 4×2 в двух рядах, далее три full-width виджета и таблица
+# операций. Все виджеты этого набора живут на вкладке `overview`; T42–T48
+# наполнят остальные вкладки.
 _DEFAULT_WIDGETS: list[dict[str, Any]] = [
-    {"widget_type": "kpi_card", "title": "Экземпляры",
+    {"widget_type": "kpi_card", "title": "Экземпляры", "tab": "overview",
      "config": {"metric": "total_cases", "format": "number"},
      "grid_x": 0, "grid_y": 0, "grid_width": 3, "grid_height": 2},
-    {"widget_type": "kpi_card", "title": "Операции",
+    {"widget_type": "kpi_card", "title": "Операции", "tab": "overview",
      "config": {"metric": "total_events", "format": "number"},
      "grid_x": 3, "grid_y": 0, "grid_width": 3, "grid_height": 2},
-    {"widget_type": "kpi_card", "title": "Уникальные операции",
+    {"widget_type": "kpi_card", "title": "Уникальные операции", "tab": "overview",
      "config": {"metric": "unique_activities", "format": "number"},
      "grid_x": 6, "grid_y": 0, "grid_width": 3, "grid_height": 2},
-    {"widget_type": "kpi_card", "title": "Средняя длительность",
+    {"widget_type": "kpi_card", "title": "Средняя длительность", "tab": "overview",
      "config": {"metric": "avg_case_duration_seconds", "format": "duration"},
      "grid_x": 9, "grid_y": 0, "grid_width": 3, "grid_height": 2},
-    {"widget_type": "kpi_card", "title": "Начало процесса",
+    {"widget_type": "kpi_card", "title": "Начало процесса", "tab": "overview",
      "config": {"metric": "first_case_started_at", "format": "date"},
      "grid_x": 0, "grid_y": 2, "grid_width": 3, "grid_height": 2},
-    {"widget_type": "kpi_card", "title": "Конец процесса",
+    {"widget_type": "kpi_card", "title": "Конец процесса", "tab": "overview",
      "config": {"metric": "last_case_started_at", "format": "date"},
      "grid_x": 3, "grid_y": 2, "grid_width": 3, "grid_height": 2},
-    {"widget_type": "kpi_card", "title": "Вариативность путей",
+    {"widget_type": "kpi_card", "title": "Вариативность путей", "tab": "overview",
      "config": {"metric": "variability_pct", "format": "percent"},
      "grid_x": 6, "grid_y": 2, "grid_width": 3, "grid_height": 2},
-    {"widget_type": "kpi_card", "title": "Встречаемость операций",
+    {"widget_type": "kpi_card", "title": "Встречаемость операций", "tab": "overview",
      "config": {"metric": "mean_occurrence_pct", "format": "percent"},
      "grid_x": 9, "grid_y": 2, "grid_width": 3, "grid_height": 2},
+    # Динамика операций по своему смыслу относится к «Процесс → Длительность»;
+    # в обзорной вкладке оставляем сокращённую копию для общего бэкграунда.
     {"widget_type": "operations_dynamics", "title": "Динамика количества операций",
-     "config": {},
-     "grid_x": 0, "grid_y": 4, "grid_width": 12, "grid_height": 5},
+     "tab": "process.duration", "config": {},
+     "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 5},
     {"widget_type": "events_per_case_histogram", "title": "Кол-во операций в экземпляре",
-     "config": {},
+     "tab": "overview", "config": {},
      "grid_x": 0, "grid_y": 9, "grid_width": 12, "grid_height": 5},
     {"widget_type": "case_flow_cumulative", "title": "Входящий и исходящий поток",
-     "config": {},
+     "tab": "overview", "config": {},
      "grid_x": 0, "grid_y": 14, "grid_width": 12, "grid_height": 5},
     {"widget_type": "operations_summary_short", "title": "Операции",
+     "tab": "details.operations",
      "config": {"activity_level": "raw", "limit": 50},
-     "grid_x": 0, "grid_y": 19, "grid_width": 12, "grid_height": 6},
+     "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 6},
 ]
 
 
@@ -70,6 +91,7 @@ async def create_default_dashboard(
         name="Обзор процесса",
         description="Автоматически созданный обзорный дашборд",
         layout=[],
+        template_kind="standard_pm",
         created_by=actor.id,
     )
     db.add(dashboard)
@@ -133,6 +155,7 @@ async def create_dashboard(
         global_filters=data.global_filters,
         applied_slice_id=data.applied_slice_id,
         layout=data.layout,
+        template_kind=data.template_kind,
         created_by=actor.id,
     )
     db.add(dashboard)
@@ -164,6 +187,8 @@ async def update_dashboard(
         dashboard.applied_slice_id = data.applied_slice_id
     if data.layout is not None:
         dashboard.layout = data.layout
+    if data.template_kind is not None:
+        dashboard.template_kind = data.template_kind
     await audit_service.log_event(
         db, actor, "dashboard.update", "dashboard", dashboard_id, request=request
     )
@@ -195,6 +220,7 @@ async def duplicate_dashboard(
         global_filters=dict(source.global_filters),
         applied_slice_id=source.applied_slice_id,
         layout=list(source.layout),
+        template_kind=source.template_kind,
         created_by=actor.id,
     )
     db.add(copy)
@@ -206,6 +232,7 @@ async def duplicate_dashboard(
                 widget_type=widget.widget_type,
                 title=widget.title,
                 config=dict(widget.config),
+                tab=widget.tab,
                 local_filters=widget.local_filters,
                 use_global_filters=widget.use_global_filters,
                 grid_x=widget.grid_x,

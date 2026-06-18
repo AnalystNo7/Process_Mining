@@ -45,6 +45,9 @@ class Dashboard(Base):
     layout: Mapped[list[Any]] = mapped_column(
         JSONB, nullable=False, server_default=sql_text("'[]'::jsonb")
     )
+    template_kind: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default=sql_text("'standard_pm'")
+    )
     created_by: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("auth.users.id"), nullable=False
     )
@@ -60,6 +63,7 @@ class DashboardWidget(Base):
     __tablename__ = "dashboard_widgets"
     __table_args__ = (
         Index("idx_widgets_dashboard", "dashboard_id"),
+        Index("idx_widgets_dashboard_tab", "dashboard_id", "tab"),
         {"schema": "core"},
     )
 
@@ -70,6 +74,9 @@ class DashboardWidget(Base):
     widget_type: Mapped[str] = mapped_column(String(50), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     config: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    tab: Mapped[str] = mapped_column(
+        String(50), nullable=False, server_default=sql_text("'overview'")
+    )
     local_filters: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     use_global_filters: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=sql_text("true")

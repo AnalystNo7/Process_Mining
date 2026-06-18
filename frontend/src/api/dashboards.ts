@@ -6,6 +6,7 @@ export interface Widget {
   widget_type: string;
   title: string;
   config: Record<string, unknown>;
+  tab: string;
   local_filters: Record<string, unknown> | null;
   use_global_filters: boolean;
   grid_x: number;
@@ -22,6 +23,7 @@ export interface Dashboard {
   global_filters: Record<string, unknown>;
   applied_slice_id: number | null;
   layout: unknown[];
+  template_kind: string;
   created_by: number;
   created_at: string;
   widgets: Widget[];
@@ -38,6 +40,7 @@ export interface WidgetCreatePayload {
   widget_type: string;
   title: string;
   config?: Record<string, unknown>;
+  tab?: string;
   grid_width?: number;
   grid_height?: number;
 }

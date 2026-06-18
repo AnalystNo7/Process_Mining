@@ -40,10 +40,13 @@ export function AddWidgetModal({
   dashboardId,
   open,
   onClose,
+  defaultTab,
 }: {
   dashboardId: number;
   open: boolean;
   onClose: () => void;
+  /** Ключ активной вкладки дашборда — новый виджет уйдёт в неё. */
+  defaultTab?: string;
 }) {
   const queryClient = useQueryClient();
   const [form] = Form.useForm<AddWidgetFormValues>();
@@ -65,6 +68,7 @@ export function AddWidgetModal({
       widget_type: values.widget_type,
       title: values.title,
       config: buildConfig(values),
+      tab: defaultTab,
       grid_width: values.widget_type === 'kpi_card' ? 3 : WIDE_TYPES.has(values.widget_type) ? 12 : 6,
       grid_height: values.widget_type === 'kpi_card' ? 2 : 4,
     });

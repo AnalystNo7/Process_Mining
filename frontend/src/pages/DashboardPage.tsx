@@ -5,9 +5,8 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Empty, Spin, Space } from 'antd';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import GridLayout, { type Layout } from 'react-grid-layout';
+import { Button, Spin, Space } from 'antd';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import 'react-grid-layout/css/styles.css';
@@ -20,15 +19,13 @@ import {
   updateDashboardLayout,
   type WidgetLayoutItem,
 } from '@/api/dashboards';
+import {
+  DashboardTabs,
+  DEFAULT_TAB_KEY,
+} from '@/features/dashboards/DashboardTabs';
 import { AddWidgetModal } from '@/features/widgets/AddWidgetModal';
 import { OverviewFilterPanel } from '@/features/widgets/OverviewFilterPanel';
-import { WidgetCard } from '@/features/widgets/WidgetCard';
 import { getErrorMessage, notifyError, notifySuccess } from '@/lib/notify';
-
-const GRID_COLS = 12;
-const ROW_HEIGHT = 60;
-const GRID_MARGIN: [number, number] = [16, 16];
-const GRID_PADDING: [number, number] = [0, 0];
 
 export function DashboardPage() {
   const params = useParams();
@@ -36,23 +33,12 @@ export function DashboardPage() {
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [gridWidth, setGridWidth] = useState(1200);
-  const gridContainerRef = useRef<HTMLDivElement | null>(null);
+  const [activeTab, setActiveTab] = useState<string>(DEFAULT_TAB_KEY);
 
   const { data: dashboard, isLoading } = useQuery({
     queryKey: ['dashboard', dashboardId],
     queryFn: () => getDashboard(dashboardId),
   });
-
-  useEffect(() => {
-    if (!gridContainerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
-      if (w && Math.abs(w - gridWidth) > 1) setGridWidth(w);
-    });
-    observer.observe(gridContainerRef.current);
-    return () => observer.disconnect();
-  }, [gridWidth]);
 
   const deleteWidgetMutation = useMutation({
     mutationFn: deleteWidget,
@@ -81,43 +67,13 @@ export function DashboardPage() {
   });
 
   const widgets = useMemo(() => dashboard?.widgets ?? [], [dashboard?.widgets]);
-  const layout: Layout[] = useMemo(
-    () =>
-      widgets.map((w) => ({
-        i: String(w.id),
-        x: w.grid_x,
-        y: w.grid_y,
-        w: w.grid_width,
-        h: w.grid_height,
-        minW: 2,
-        minH: 2,
-      })),
-    [widgets]
-  );
 
-  const flushTimer = useRef<number | null>(null);
-  const handleLayoutChange = (next: Layout[]) => {
+  const handleLayoutChange = (items: WidgetLayoutItem[]) => {
     if (!editing) return;
-    const items: WidgetLayoutItem[] = next.map((l) => ({
-      id: Number(l.i),
-      grid_x: l.x,
-      grid_y: l.y,
-      grid_width: l.w,
-      grid_height: l.h,
-    }));
-    if (flushTimer.current !== null) window.clearTimeout(flushTimer.current);
-    flushTimer.current = window.setTimeout(() => {
-      updateLayoutMutation.mutate(items);
-    }, 400);
+    updateLayoutMutation.mutate(items);
   };
 
-  const toggleEditing = () => {
-    if (editing && flushTimer.current !== null) {
-      window.clearTimeout(flushTimer.current);
-      flushTimer.current = null;
-    }
-    setEditing((v) => !v);
-  };
+  const toggleEditing = () => setEditing((v) => !v);
 
   return (
     <div>
@@ -161,36 +117,15 @@ export function DashboardPage() {
             onApply={updateFiltersMutation.mutate}
             isApplying={updateFiltersMutation.isPending}
           />
-          <div style={{ flex: 1, minWidth: 0 }} ref={gridContainerRef}>
-            {widgets.length === 0 ? (
-              <Empty description="На дашборде пока нет виджетов" />
-            ) : (
-              <GridLayout
-                className="layout"
-                cols={GRID_COLS}
-                rowHeight={ROW_HEIGHT}
-                margin={GRID_MARGIN}
-                containerPadding={GRID_PADDING}
-                width={gridWidth}
-                layout={layout}
-                isDraggable={editing}
-                isResizable={editing}
-                resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
-                draggableHandle=".widget-drag-handle"
-                onLayoutChange={handleLayoutChange}
-                compactType="vertical"
-              >
-                {widgets.map((widget) => (
-                  <div key={String(widget.id)}>
-                    <WidgetCard
-                      widget={widget}
-                      onDelete={deleteWidgetMutation.mutate}
-                      editing={editing}
-                    />
-                  </div>
-                ))}
-              </GridLayout>
-            )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <DashboardTabs
+              widgets={widgets}
+              editing={editing}
+              onLayoutChange={handleLayoutChange}
+              onDeleteWidget={deleteWidgetMutation.mutate}
+              activeTab={activeTab}
+              onActiveTabChange={setActiveTab}
+            />
           </div>
         </div>
       )}
@@ -199,6 +134,7 @@ export function DashboardPage() {
         dashboardId={dashboardId}
         open={addOpen}
         onClose={() => setAddOpen(false)}
+        defaultTab={activeTab}
       />
     </div>
   );

@@ -8,6 +8,7 @@ class WidgetCreate(BaseModel):
     widget_type: str = Field(min_length=1, max_length=50)
     title: str = Field(min_length=1, max_length=255)
     config: dict[str, Any] = Field(default_factory=dict)
+    tab: str = Field(default="overview", min_length=1, max_length=50)
     local_filters: dict[str, Any] | None = None
     use_global_filters: bool = True
     grid_x: int = 0
@@ -19,6 +20,7 @@ class WidgetCreate(BaseModel):
 class WidgetUpdate(BaseModel):
     title: str | None = None
     config: dict[str, Any] | None = None
+    tab: str | None = Field(default=None, min_length=1, max_length=50)
     local_filters: dict[str, Any] | None = None
     use_global_filters: bool | None = None
     grid_x: int | None = None
@@ -35,6 +37,7 @@ class WidgetResponse(BaseModel):
     widget_type: str
     title: str
     config: dict[str, Any]
+    tab: str
     local_filters: dict[str, Any] | None
     use_global_filters: bool
     grid_x: int
@@ -49,6 +52,7 @@ class DashboardCreate(BaseModel):
     global_filters: dict[str, Any] = Field(default_factory=dict)
     applied_slice_id: int | None = None
     layout: list[Any] = Field(default_factory=list)
+    template_kind: str = Field(default="standard_pm", min_length=1, max_length=32)
 
 
 class DashboardUpdate(BaseModel):
@@ -57,6 +61,7 @@ class DashboardUpdate(BaseModel):
     global_filters: dict[str, Any] | None = None
     applied_slice_id: int | None = None
     layout: list[Any] | None = None
+    template_kind: str | None = Field(default=None, min_length=1, max_length=32)
 
 
 class DashboardResponse(BaseModel):
@@ -67,6 +72,7 @@ class DashboardResponse(BaseModel):
     global_filters: dict[str, Any]
     applied_slice_id: int | None
     layout: list[Any]
+    template_kind: str
     created_by: int
     created_at: datetime
     widgets: list[WidgetResponse]
