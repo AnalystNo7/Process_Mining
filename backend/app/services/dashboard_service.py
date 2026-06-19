@@ -34,11 +34,17 @@ STANDARD_PM_TAB_KEYS: tuple[str, ...] = (
     "details.dataset",
 )
 
-# Виджеты обзорной вкладки дашборда. Сетка 12 колонок, единица rowHeight≈60px
-# на фронте: KPI 4×2 в двух рядах, далее три full-width виджета и таблица
-# операций. Все виджеты этого набора живут на вкладке `overview`; T42–T48
-# наполнят остальные вкладки.
-_DEFAULT_WIDGETS: list[dict[str, Any]] = [
+# Виджеты вкладки «Обзор» (T41.1, согласованный эскиз). Сетка 12 колонок,
+# единица rowHeight≈60px на фронте. Раскладка:
+#   ряд 1 (y0)   — 4 KPI-карточки в строку (Экземпляры/Операции/Уникальные/Ср.длит.);
+#   блок (y2..10)— «Динамика по месяцам» 3/4 ширины слева (w9, h8) + столбик из 4 KPI
+#                  справа под «Средней длительностью» (x9: Начало/Конец/Вариативность/Встречаемость);
+#   ряд (y10)    — «Кол-во операций в экземпляре» (w6) | «Входящий и исходящий поток» (w6);
+#   ряд (y15)    — «Топ повторов» (w6) | «Топ-5 путей процесса» (w6).
+# Виджеты `operations_dynamics` и `operations_summary_short` живут на других
+# вкладках (Процесс→Длительность, Детали→Операции).
+_OVERVIEW_WIDGETS: list[dict[str, Any]] = [
+    # Ряд 1 — четыре KPI-карточки.
     {"widget_type": "kpi_card", "title": "Экземпляры", "tab": "overview",
      "config": {"metric": "total_cases", "format": "number"},
      "grid_x": 0, "grid_y": 0, "grid_width": 3, "grid_height": 2},
@@ -51,29 +57,45 @@ _DEFAULT_WIDGETS: list[dict[str, Any]] = [
     {"widget_type": "kpi_card", "title": "Средняя длительность", "tab": "overview",
      "config": {"metric": "avg_case_duration_seconds", "format": "duration"},
      "grid_x": 9, "grid_y": 0, "grid_width": 3, "grid_height": 2},
+    # Динамика по месяцам — 3/4 ширины слева.
+    {"widget_type": "monthly_dynamics", "title": "Динамика по месяцам",
+     "tab": "overview", "config": {},
+     "grid_x": 0, "grid_y": 2, "grid_width": 9, "grid_height": 8},
+    # Столбик из 4 KPI справа, под «Средней длительностью» (x9).
     {"widget_type": "kpi_card", "title": "Начало процесса", "tab": "overview",
      "config": {"metric": "first_case_started_at", "format": "date"},
-     "grid_x": 0, "grid_y": 2, "grid_width": 3, "grid_height": 2},
+     "grid_x": 9, "grid_y": 2, "grid_width": 3, "grid_height": 2},
     {"widget_type": "kpi_card", "title": "Конец процесса", "tab": "overview",
      "config": {"metric": "last_case_started_at", "format": "date"},
-     "grid_x": 3, "grid_y": 2, "grid_width": 3, "grid_height": 2},
+     "grid_x": 9, "grid_y": 4, "grid_width": 3, "grid_height": 2},
     {"widget_type": "kpi_card", "title": "Вариативность путей", "tab": "overview",
      "config": {"metric": "variability_pct", "format": "percent"},
-     "grid_x": 6, "grid_y": 2, "grid_width": 3, "grid_height": 2},
+     "grid_x": 9, "grid_y": 6, "grid_width": 3, "grid_height": 2},
     {"widget_type": "kpi_card", "title": "Встречаемость операций", "tab": "overview",
      "config": {"metric": "mean_occurrence_pct", "format": "percent"},
-     "grid_x": 9, "grid_y": 2, "grid_width": 3, "grid_height": 2},
-    # Динамика операций по своему смыслу относится к «Процесс → Длительность»;
-    # в обзорной вкладке оставляем сокращённую копию для общего бэкграунда.
+     "grid_x": 9, "grid_y": 8, "grid_width": 3, "grid_height": 2},
+    # Ряд: гистограмма | поток (по половине ширины).
+    {"widget_type": "events_per_case_histogram", "title": "Кол-во операций в экземпляре",
+     "tab": "overview", "config": {},
+     "grid_x": 0, "grid_y": 10, "grid_width": 6, "grid_height": 5},
+    {"widget_type": "case_flow_cumulative", "title": "Входящий и исходящий поток",
+     "tab": "overview", "config": {},
+     "grid_x": 6, "grid_y": 10, "grid_width": 6, "grid_height": 5},
+    # Ряд: топ повторов | топ путей (по половине ширины).
+    {"widget_type": "rework_table", "title": "Топ повторов",
+     "tab": "overview", "config": {},
+     "grid_x": 0, "grid_y": 15, "grid_width": 6, "grid_height": 6},
+    {"widget_type": "top_paths_graph", "title": "Топ-5 путей процесса",
+     "tab": "overview", "config": {},
+     "grid_x": 6, "grid_y": 15, "grid_width": 6, "grid_height": 6},
+]
+
+# Полный набор виджетов авто-дашборда: «Обзор» + наполнение других вкладок.
+_DEFAULT_WIDGETS: list[dict[str, Any]] = [
+    *_OVERVIEW_WIDGETS,
     {"widget_type": "operations_dynamics", "title": "Динамика количества операций",
      "tab": "process.duration", "config": {},
      "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 5},
-    {"widget_type": "events_per_case_histogram", "title": "Кол-во операций в экземпляре",
-     "tab": "overview", "config": {},
-     "grid_x": 0, "grid_y": 9, "grid_width": 12, "grid_height": 5},
-    {"widget_type": "case_flow_cumulative", "title": "Входящий и исходящий поток",
-     "tab": "overview", "config": {},
-     "grid_x": 0, "grid_y": 14, "grid_width": 12, "grid_height": 5},
     {"widget_type": "operations_summary_short", "title": "Операции",
      "tab": "details.operations",
      "config": {"activity_level": "raw", "limit": 50},
