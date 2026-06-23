@@ -100,34 +100,17 @@ def test_overview_layout_matches_sketch() -> None:
 
 
 def test_process_subtabs_have_default_widgets() -> None:
-    """T43: каждая из 5 подвкладок «Процесс» получает хотя бы один виджет."""
-    expected_tabs = {
-        "process.process",
-        "process.duration",
-        "process.rework",
-        "process.paths",
-        "process.distribution",
-    }
+    """T47: дефолтные виджеты остались только на process.rework и process.distribution.
+    На process.process рендерится богатый ProcessGraphTab (embedded) на фронте —
+    виджет в БД ему не нужен. process.duration и process.paths остаются пустыми
+    (пользователь добавляет вручную). """
+    expected_tabs = {"process.rework", "process.distribution"}
     covered = {w["tab"] for w in _PROCESS_WIDGETS}
     assert covered == expected_tabs, (
-        f"T43: не все подвкладки покрыты, отсутствуют: {expected_tabs - covered}, "
-        f"лишние: {covered - expected_tabs}"
+        f"T47: ожидаем только rework и distribution, получили {covered}"
     )
 
 
 def test_default_widgets_count() -> None:
-    """T43: после наполнения процесса всего 20 виджетов (13 overview + 6 process + 1 details)."""
-    assert len(_DEFAULT_WIDGETS) == 20
-
-
-def test_process_graph_widget_has_safe_defaults() -> None:
-    """T43.1: process_graph должен идти с дефолтами max_nodes/min_edge_frequency_pct,
-    иначе Cytoscape dagre-layout висит на крупных датасетах."""
-    pg = next(
-        w for w in _PROCESS_WIDGETS
-        if w["widget_type"] == "process_graph" and w["tab"] == "process.process"
-    )
-    assert pg["config"].get("max_nodes") == 60, "T43.1: нужен max_nodes=60"
-    assert pg["config"].get("min_edge_frequency_pct") == 5.0, (
-        "T43.1: нужен min_edge_frequency_pct=5.0"
-    )
+    """T47: 13 overview + 2 process + 1 details = 16 виджетов."""
+    assert len(_DEFAULT_WIDGETS) == 16

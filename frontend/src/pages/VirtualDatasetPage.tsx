@@ -7,14 +7,14 @@ import { Link, useParams } from 'react-router-dom';
 import { getVirtualDataset } from '@/api/virtualDatasets';
 import { AnnotationsTab } from '@/features/annotations/AnnotationsTab';
 import { CasesTab } from '@/features/analytics/CasesTab';
-import { ProcessGraphTab } from '@/features/analytics/ProcessGraphTab';
 import { DashboardsTab } from '@/features/dashboards/DashboardsTab';
 
-type TabKey = 'dashboards' | 'graph' | 'cases' | 'annotations';
+// T47: вкладка «Процесс» удалена — ProcessGraphTab переехал в дашборд
+// «Обзор процесса → Процесс» (см. DashboardTabs.tsx).
+type TabKey = 'dashboards' | 'cases' | 'annotations';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'dashboards', label: 'Дашборды' },
-  { key: 'graph', label: 'Процесс' },
   { key: 'cases', label: 'Кейсы' },
   { key: 'annotations', label: 'Аннотации' },
 ];
@@ -60,9 +60,6 @@ export function VirtualDatasetPage() {
 
       <div role="tabpanel">
         {active === 'dashboards' && <DashboardsTab projectId={projectId} vdId={vdId} />}
-        {active === 'graph' && (
-          <ProcessGraphTab projectId={projectId} vdId={vdId} vdName={vdName} />
-        )}
         {active === 'cases' && <CasesTab projectId={projectId} vdId={vdId} />}
         {active === 'annotations' && <AnnotationsTab vdId={vdId} />}
       </div>

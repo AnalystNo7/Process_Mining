@@ -12,6 +12,7 @@ import { Link, useParams } from 'react-router-dom';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
+import type { EventFilter } from '@/api/analytics';
 import {
   deleteWidget,
   getDashboard,
@@ -19,6 +20,7 @@ import {
   updateDashboardLayout,
   type WidgetLayoutItem,
 } from '@/api/dashboards';
+import { getVirtualDataset } from '@/api/virtualDatasets';
 import {
   DashboardTabs,
   DEFAULT_TAB_KEY,
@@ -30,6 +32,8 @@ import { getErrorMessage, notifyError, notifySuccess } from '@/lib/notify';
 export function DashboardPage() {
   const params = useParams();
   const dashboardId = Number(params.dashboardId);
+  const projectId = Number(params.projectId);
+  const vdId = Number(params.vdId);
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -39,6 +43,21 @@ export function DashboardPage() {
     queryKey: ['dashboard', dashboardId],
     queryFn: () => getDashboard(dashboardId),
   });
+
+  const { data: vd } = useQuery({
+    queryKey: ['vd', vdId],
+    queryFn: () => getVirtualDataset(projectId, vdId),
+    enabled: Number.isFinite(projectId) && Number.isFinite(vdId),
+  });
+  const vdName = vd?.name ?? 'Виртуальный датасет';
+
+  // T47: глобальные фильтры дашборда передаются в богатую подвкладку
+  // process.process (ProcessGraphTab embedded). На бэке хранятся в произвольном
+  // формате (Record<string, unknown>) — кастуем к EventFilter (поля совместимы).
+  const globalFilters = useMemo<EventFilter>(
+    () => (dashboard?.global_filters ?? {}) as EventFilter,
+    [dashboard?.global_filters],
+  );
 
   const deleteWidgetMutation = useMutation({
     mutationFn: deleteWidget,
@@ -125,6 +144,10 @@ export function DashboardPage() {
               onDeleteWidget={deleteWidgetMutation.mutate}
               activeTab={activeTab}
               onActiveTabChange={setActiveTab}
+              projectId={projectId}
+              vdId={vdId}
+              vdName={vdName}
+              globalFilters={globalFilters}
             />
           </div>
         </div>

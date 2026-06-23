@@ -93,36 +93,28 @@ _OVERVIEW_WIDGETS: list[dict[str, Any]] = [
 ]
 
 # Виджеты подвкладок «Процесс» (T43). По одному-двум основным виджетам на каждую
-# из пяти подвкладок: process.process — DFG-граф; process.duration — динамика
-# + таблица операций; process.rework — таблица переделок; process.paths —
-# топ-N маршрутов; process.distribution — динамика по месяцам.
-# Все widget_type уже обрабатываются widget_data_service._HANDLERS.
+# Виджеты подвкладок «Процесс» (T47). На `process.process` теперь рендерится
+# богатый интерфейс ProcessGraphTab (embedded) — не виджет в сетке, а полный
+# компонент с панелью путей, частотным фильтром, таблицей операций и
+# динамикой. Поэтому из дефолта удалены дублирующие виджеты:
+#   - process_graph (process.process) — заменён ProcessGraphTab;
+#   - operations_dynamics + operations_summary_short (process.duration) — есть
+#     в ProcessGraphTab внизу;
+#   - top_paths_graph (process.paths) — есть в правой панели ProcessGraphTab.
+# Оставлены только независимые виджеты на process.rework и process.distribution.
 _PROCESS_WIDGETS: list[dict[str, Any]] = [
-    {"widget_type": "process_graph", "title": "Граф процесса",
-     "tab": "process.process",
-     "config": {"max_nodes": 60, "min_edge_frequency_pct": 5.0},
-     "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 10},
-    {"widget_type": "operations_dynamics", "title": "Динамика количества операций",
-     "tab": "process.duration", "config": {},
-     "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 5},
-    {"widget_type": "operations_summary_short", "title": "Метрики операций",
-     "tab": "process.duration",
-     "config": {"activity_level": "raw", "limit": 50},
-     "grid_x": 0, "grid_y": 5, "grid_width": 12, "grid_height": 7},
     {"widget_type": "rework_table", "title": "Таблица переделок",
      "tab": "process.rework", "config": {},
      "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 8},
-    {"widget_type": "top_paths_graph", "title": "Топ-N маршрутов",
-     "tab": "process.paths", "config": {},
-     "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 10},
     {"widget_type": "monthly_dynamics", "title": "Динамика по месяцам",
      "tab": "process.distribution", "config": {},
      "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 10},
 ]
 
-# Полный набор виджетов авто-дашборда: «Обзор» + 5 подвкладок «Процесс» +
-# «Детали → Операции». Дубли operations_dynamics на process.duration убраны —
-# виджет переехал в _PROCESS_WIDGETS.
+# Полный набор виджетов авто-дашборда: «Обзор» + 2 виджета подвкладок
+# «Процесс» (rework и distribution) + «Детали → Операции». Подвкладка
+# process.process рендерится компонентом ProcessGraphTab (embedded) на
+# фронте, без записей в БД (T47).
 _DEFAULT_WIDGETS: list[dict[str, Any]] = [
     *_OVERVIEW_WIDGETS,
     *_PROCESS_WIDGETS,

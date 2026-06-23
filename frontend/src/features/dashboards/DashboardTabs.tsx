@@ -2,7 +2,9 @@ import { Empty, Tabs } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import GridLayout, { type Layout } from 'react-grid-layout';
 
+import type { EventFilter } from '@/api/analytics';
 import type { Widget, WidgetLayoutItem } from '@/api/dashboards';
+import { ProcessGraphTab } from '@/features/analytics/ProcessGraphTab';
 import { WidgetCard } from '@/features/widgets/WidgetCard';
 
 import {
@@ -24,6 +26,11 @@ interface DashboardTabsProps {
   onDeleteWidget: (widgetId: number) => void;
   activeTab: string;
   onActiveTabChange: (tab: string) => void;
+  /** T47: контекст для богатой подвкладки `process.process` (ProcessGraphTab). */
+  projectId: number;
+  vdId: number;
+  vdName: string;
+  globalFilters?: EventFilter;
 }
 
 /**
@@ -41,6 +48,10 @@ export function DashboardTabs({
   onDeleteWidget,
   activeTab,
   onActiveTabChange,
+  projectId,
+  vdId,
+  vdName,
+  globalFilters,
 }: DashboardTabsProps) {
   // Берём корень активного ключа (`details.cases` → `details`); если ключ —
   // это листовая топ-вкладка (`overview`/`standard_metrics`), оставляем как есть.
@@ -59,18 +70,43 @@ export function DashboardTabs({
     }
   };
 
-  const topItems = STANDARD_PM_TABS.map((top) => ({
-    key: top.key,
-    label: top.label,
-    children: <TabBody top={top} activeKey={activeTab} onActiveChange={onActiveTabChange}>
+  // T47: для подвкладки `process.process` рендерим богатый ProcessGraphTab
+  // (embedded), а не обычный GridLayout — там панель путей, частотный фильтр,
+  // таблица операций и динамика по месяцам.
+  const renderSubtabContent = (tabKey: string) => {
+    if (tabKey === 'process.process') {
+      return (
+        <ProcessGraphTab
+          projectId={projectId}
+          vdId={vdId}
+          vdName={vdName}
+          embedded
+          externalFilter={globalFilters}
+        />
+      );
+    }
+    return (
       <TabGrid
         widgets={widgets}
-        tabKey={top.subtabs ? activeTab : top.key}
+        tabKey={tabKey}
         editing={editing}
         onLayoutChange={onLayoutChange}
         onDeleteWidget={onDeleteWidget}
       />
-    </TabBody>,
+    );
+  };
+
+  const topItems = STANDARD_PM_TABS.map((top) => ({
+    key: top.key,
+    label: top.label,
+    children: (
+      <TabBody
+        top={top}
+        activeKey={activeTab}
+        onActiveChange={onActiveTabChange}
+        renderContent={renderSubtabContent}
+      />
+    ),
   }));
 
   return (
@@ -87,12 +123,16 @@ interface TabBodyProps {
   top: TopTabDef;
   activeKey: string;
   onActiveChange: (key: string) => void;
-  children: React.ReactNode;
+  /** T47: рендер контента зависит от ключа подвкладки (часть подвкладок
+   * показывает кастомные компоненты, например ProcessGraphTab). */
+  renderContent: (tabKey: string) => React.ReactNode;
 }
 
-/** Тело топ-вкладки: либо рендерит детей напрямую, либо подвкладки. */
-function TabBody({ top, activeKey, onActiveChange, children }: TabBodyProps) {
-  if (!top.subtabs || top.subtabs.length === 0) return <>{children}</>;
+/** Тело топ-вкладки: либо рендерит контент напрямую, либо через подвкладки. */
+function TabBody({ top, activeKey, onActiveChange, renderContent }: TabBodyProps) {
+  if (!top.subtabs || top.subtabs.length === 0) {
+    return <>{renderContent(top.key)}</>;
+  }
   return (
     <Tabs
       activeKey={activeKey}
@@ -102,7 +142,7 @@ function TabBody({ top, activeKey, onActiveChange, children }: TabBodyProps) {
       items={top.subtabs.map((sub) => ({
         key: sub.key,
         label: sub.label,
-        children: activeKey === sub.key ? children : null,
+        children: activeKey === sub.key ? renderContent(sub.key) : null,
       }))}
       destroyInactiveTabPane
     />

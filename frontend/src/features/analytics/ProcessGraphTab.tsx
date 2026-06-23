@@ -54,12 +54,20 @@ export function ProcessGraphTab({
   projectId,
   vdId,
   vdName,
+  embedded = false,
+  externalFilter,
 }: {
   projectId: number;
   vdId: number;
   vdName: string;
+  /** T47: при `embedded=true` компонент рендерится внутри дашборда — без
+   * собственной FilterPanel, фильтры приходят извне (externalFilter). */
+  embedded?: boolean;
+  externalFilter?: EventFilter;
 }) {
-  const [filters, setFilters] = useState<EventFilter>({});
+  const [localFilters, setLocalFilters] = useState<EventFilter>({});
+  // В embedded-режиме игнорируем локальный state и берём фильтры от родителя.
+  const filters: EventFilter = embedded ? (externalFilter ?? {}) : localFilters;
   const [mode, setMode] = useState<'top_paths' | 'frequency'>('top_paths');
   const [activityLevel, setActivityLevel] = useState('raw');
   const [n, setN] = useState(5);
@@ -355,7 +363,9 @@ export function ProcessGraphTab({
 
   return (
     <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-      <FilterPanel options={optionsQuery.data} onApply={setFilters} />
+      {!embedded && (
+        <FilterPanel options={optionsQuery.data} onApply={setLocalFilters} />
+      )}
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <Space style={{ marginBottom: 16 }} wrap>

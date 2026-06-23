@@ -124,10 +124,19 @@ async def test_monthly_dynamics_widget_data(
 async def test_operations_dynamics_widget_data(
     client, analyst_user, db_session, tmp_path
 ) -> None:
-    dashboard_id, widgets = await _setup(
+    dashboard_id, _widgets = await _setup(
         client, analyst_user.headers, db_session, analyst_user.id, tmp_path
     )
-    widget = next(w for w in widgets if w["widget_type"] == "operations_dynamics")
+    # T47: виджет operations_dynamics больше не входит в дефолтный набор,
+    # создаём его явно для проверки эндпоинта данных.
+    created = await client.post(
+        f"/api/v1/dashboards/{dashboard_id}/widgets",
+        headers=analyst_user.headers,
+        json={"widget_type": "operations_dynamics", "title": "Динамика",
+              "config": {}, "tab": "process.duration"},
+    )
+    assert created.status_code == 201
+    widget = created.json()
     resp = await client.get(
         f"/api/v1/widgets/{widget['id']}/data", headers=analyst_user.headers
     )
