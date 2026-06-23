@@ -50,11 +50,12 @@ def test_overview_widgets_all_on_overview_tab() -> None:
 
 
 def test_overview_layout_matches_sketch() -> None:
-    """T41.2: ключевые элементы согласованного эскиза присутствуют.
+    """T41.3: ключевые элементы согласованного эскиза присутствуют.
 
-    13 виджетов; динамика по месяцам 3/4 ширины × h=10; столбик из 4 KPI справа
-    распределён по y=2,5,8,11; нижние ряды y=13 (гистограмма/поток) и y=18
-    (повторы/пути), по половине ширины.
+    13 виджетов; динамика по месяцам 3/4 ширины × h=11 (нижний край точно
+    совпадает с нижним краем последнего KPI «Встречаемость» на строке 13);
+    столбик из 4 KPI справа распределён по y=2,5,8,11; нижние ряды
+    y=14 (гистограмма/поток) и y=19 (повторы/пути), по половине ширины.
     """
     assert len(_OVERVIEW_WIDGETS) == 13
 
@@ -63,7 +64,7 @@ def test_overview_layout_matches_sketch() -> None:
     dynamics = by_title["Динамика по месяцам"]
     assert dynamics["widget_type"] == "monthly_dynamics"
     assert dynamics["grid_x"] == 0 and dynamics["grid_width"] == 9
-    assert dynamics["grid_height"] == 10, "T41.2: динамика должна быть h=10"
+    assert dynamics["grid_height"] == 11, "T41.3: динамика должна быть h=11"
 
     # Столбик из 4 KPI справа — в колонке x=9, равномерно распределён.
     right_stack = ["Начало процесса", "Конец процесса",
@@ -74,17 +75,24 @@ def test_overview_layout_matches_sketch() -> None:
         assert w["grid_x"] == 9 and w["grid_width"] == 3 and w["grid_height"] == 2
         ys.append(w["grid_y"])
     assert ys == [2, 5, 8, 11], (
-        f"T41.2: KPI справа должны идти по y=2,5,8,11, получили {ys}"
+        f"T41.3: KPI справа должны идти по y=2,5,8,11, получили {ys}"
     )
 
-    # Нижние ряды — половинная ширина, опущены под динамику h=10.
+    # T41.3: нижний край динамики (y+h=13) совпадает с нижним краем последнего KPI.
+    last_kpi = by_title["Встречаемость операций"]
+    assert (
+        dynamics["grid_y"] + dynamics["grid_height"]
+        == last_kpi["grid_y"] + last_kpi["grid_height"]
+    ), "T41.3: низ динамики и низ последнего KPI должны совпадать"
+
+    # Нижние ряды — половинная ширина, опущены под динамику h=11.
     for title in ("Кол-во операций в экземпляре", "Входящий и исходящий поток"):
         w = by_title[title]
-        assert w["grid_width"] == 6 and w["grid_y"] == 13
+        assert w["grid_width"] == 6 and w["grid_y"] == 14
     for title in ("Топ повторов", "Топ-5 путей процесса"):
         w = by_title[title]
-        assert w["grid_width"] == 6 and w["grid_y"] == 18
+        assert w["grid_width"] == 6 and w["grid_y"] == 19
 
-    # Новые виджеты раскладки присутствуют.
+    # Виджеты «Топ повторов» и «Топ путей» используют ожидаемые типы.
     assert by_title["Топ повторов"]["widget_type"] == "rework_table"
     assert by_title["Топ-5 путей процесса"]["widget_type"] == "top_paths_graph"

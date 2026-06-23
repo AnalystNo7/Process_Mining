@@ -34,13 +34,14 @@ STANDARD_PM_TAB_KEYS: tuple[str, ...] = (
     "details.dataset",
 )
 
-# Виджеты вкладки «Обзор» (T41.2, согласованный эскиз). Сетка 12 колонок,
+# Виджеты вкладки «Обзор» (T41.3, согласованный эскиз). Сетка 12 колонок,
 # единица rowHeight≈60px на фронте. Раскладка:
 #   ряд (y0)     — 4 KPI-карточки в строку (Экземпляры/Операции/Уникальные/Ср.длит.);
-#   блок (y2..12)— «Динамика по месяцам» 3/4 ширины слева (w9, h10) + столбик из 4 KPI
-#                  справа равномерно по y=2,5,8,11 (Начало/Конец/Вариативность/Встречаемость);
-#   ряд (y13)    — «Кол-во операций в экземпляре» (w6) | «Входящий и исходящий поток» (w6);
-#   ряд (y18)    — «Топ повторов» (w6) | «Топ-5 путей процесса» (w6).
+#   блок (y2..13)— «Динамика по месяцам» 3/4 ширины слева (w9, h11) + столбик из 4 KPI
+#                  справа равномерно по y=2,5,8,11 (Начало/Конец/Вариативность/Встречаемость).
+#                  Нижние края динамики и столбика KPI совпадают на y=13;
+#   ряд (y14)    — «Кол-во операций в экземпляре» (w6) | «Входящий и исходящий поток» (w6);
+#   ряд (y19)    — «Топ повторов» (w6) | «Топ-5 путей процесса» (w6).
 # Виджеты `operations_dynamics` и `operations_summary_short` живут на других
 # вкладках (Процесс→Длительность, Детали→Операции).
 _OVERVIEW_WIDGETS: list[dict[str, Any]] = [
@@ -57,10 +58,11 @@ _OVERVIEW_WIDGETS: list[dict[str, Any]] = [
     {"widget_type": "kpi_card", "title": "Средняя длительность", "tab": "overview",
      "config": {"metric": "avg_case_duration_seconds", "format": "duration"},
      "grid_x": 9, "grid_y": 0, "grid_width": 3, "grid_height": 2},
-    # Динамика по месяцам — 3/4 ширины слева, увеличена по высоте (h=10).
+    # Динамика по месяцам — 3/4 ширины слева, высота h=11 (T41.3: точно до низа
+    # столбика KPI справа: 2 + 11 = 13 = 11 + 2 нижнего KPI «Встречаемость»).
     {"widget_type": "monthly_dynamics", "title": "Динамика по месяцам",
      "tab": "overview", "config": {},
-     "grid_x": 0, "grid_y": 2, "grid_width": 9, "grid_height": 10},
+     "grid_x": 0, "grid_y": 2, "grid_width": 9, "grid_height": 11},
     # Столбик из 4 KPI справа (x=9), равномерно распределён по высоте динамики.
     {"widget_type": "kpi_card", "title": "Начало процесса", "tab": "overview",
      "config": {"metric": "first_case_started_at", "format": "date"},
@@ -74,20 +76,20 @@ _OVERVIEW_WIDGETS: list[dict[str, Any]] = [
     {"widget_type": "kpi_card", "title": "Встречаемость операций", "tab": "overview",
      "config": {"metric": "mean_occurrence_pct", "format": "percent"},
      "grid_x": 9, "grid_y": 11, "grid_width": 3, "grid_height": 2},
-    # Ряд: гистограмма | поток (по половине ширины).
+    # Ряд: гистограмма | поток (по половине ширины). y=14 — сразу под динамикой h=11.
     {"widget_type": "events_per_case_histogram", "title": "Кол-во операций в экземпляре",
      "tab": "overview", "config": {},
-     "grid_x": 0, "grid_y": 13, "grid_width": 6, "grid_height": 5},
+     "grid_x": 0, "grid_y": 14, "grid_width": 6, "grid_height": 5},
     {"widget_type": "case_flow_cumulative", "title": "Входящий и исходящий поток",
      "tab": "overview", "config": {},
-     "grid_x": 6, "grid_y": 13, "grid_width": 6, "grid_height": 5},
+     "grid_x": 6, "grid_y": 14, "grid_width": 6, "grid_height": 5},
     # Ряд: топ повторов | топ путей (по половине ширины).
     {"widget_type": "rework_table", "title": "Топ повторов",
      "tab": "overview", "config": {},
-     "grid_x": 0, "grid_y": 18, "grid_width": 6, "grid_height": 6},
+     "grid_x": 0, "grid_y": 19, "grid_width": 6, "grid_height": 6},
     {"widget_type": "top_paths_graph", "title": "Топ-5 путей процесса",
      "tab": "overview", "config": {},
-     "grid_x": 6, "grid_y": 18, "grid_width": 6, "grid_height": 6},
+     "grid_x": 6, "grid_y": 19, "grid_width": 6, "grid_height": 6},
 ]
 
 # Полный набор виджетов авто-дашборда: «Обзор» + наполнение других вкладок.
