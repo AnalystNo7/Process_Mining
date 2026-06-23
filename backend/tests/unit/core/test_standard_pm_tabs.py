@@ -7,6 +7,7 @@ backend-таксономией вкладок и значениями `tab` в �
 from app.services.dashboard_service import (
     _DEFAULT_WIDGETS,
     _OVERVIEW_WIDGETS,
+    _PROCESS_WIDGETS,
     STANDARD_PM_TAB_KEYS,
 )
 
@@ -96,3 +97,24 @@ def test_overview_layout_matches_sketch() -> None:
     # Виджеты «Топ повторов» и «Топ путей» используют ожидаемые типы.
     assert by_title["Топ повторов"]["widget_type"] == "rework_table"
     assert by_title["Топ-5 путей процесса"]["widget_type"] == "top_paths_graph"
+
+
+def test_process_subtabs_have_default_widgets() -> None:
+    """T43: каждая из 5 подвкладок «Процесс» получает хотя бы один виджет."""
+    expected_tabs = {
+        "process.process",
+        "process.duration",
+        "process.rework",
+        "process.paths",
+        "process.distribution",
+    }
+    covered = {w["tab"] for w in _PROCESS_WIDGETS}
+    assert covered == expected_tabs, (
+        f"T43: не все подвкладки покрыты, отсутствуют: {expected_tabs - covered}, "
+        f"лишние: {covered - expected_tabs}"
+    )
+
+
+def test_default_widgets_count() -> None:
+    """T43: после наполнения процесса всего 20 виджетов (13 overview + 6 process + 1 details)."""
+    assert len(_DEFAULT_WIDGETS) == 20

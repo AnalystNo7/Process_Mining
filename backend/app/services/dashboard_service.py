@@ -92,12 +92,39 @@ _OVERVIEW_WIDGETS: list[dict[str, Any]] = [
      "grid_x": 6, "grid_y": 19, "grid_width": 6, "grid_height": 6},
 ]
 
-# Полный набор виджетов авто-дашборда: «Обзор» + наполнение других вкладок.
-_DEFAULT_WIDGETS: list[dict[str, Any]] = [
-    *_OVERVIEW_WIDGETS,
+# Виджеты подвкладок «Процесс» (T43). По одному-двум основным виджетам на каждую
+# из пяти подвкладок: process.process — DFG-граф; process.duration — динамика
+# + таблица операций; process.rework — таблица переделок; process.paths —
+# топ-N маршрутов; process.distribution — динамика по месяцам.
+# Все widget_type уже обрабатываются widget_data_service._HANDLERS.
+_PROCESS_WIDGETS: list[dict[str, Any]] = [
+    {"widget_type": "process_graph", "title": "Граф процесса",
+     "tab": "process.process", "config": {},
+     "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 10},
     {"widget_type": "operations_dynamics", "title": "Динамика количества операций",
      "tab": "process.duration", "config": {},
      "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 5},
+    {"widget_type": "operations_summary_short", "title": "Метрики операций",
+     "tab": "process.duration",
+     "config": {"activity_level": "raw", "limit": 50},
+     "grid_x": 0, "grid_y": 5, "grid_width": 12, "grid_height": 7},
+    {"widget_type": "rework_table", "title": "Таблица переделок",
+     "tab": "process.rework", "config": {},
+     "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 8},
+    {"widget_type": "top_paths_graph", "title": "Топ-N маршрутов",
+     "tab": "process.paths", "config": {},
+     "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 10},
+    {"widget_type": "monthly_dynamics", "title": "Динамика по месяцам",
+     "tab": "process.distribution", "config": {},
+     "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 10},
+]
+
+# Полный набор виджетов авто-дашборда: «Обзор» + 5 подвкладок «Процесс» +
+# «Детали → Операции». Дубли operations_dynamics на process.duration убраны —
+# виджет переехал в _PROCESS_WIDGETS.
+_DEFAULT_WIDGETS: list[dict[str, Any]] = [
+    *_OVERVIEW_WIDGETS,
+    *_PROCESS_WIDGETS,
     {"widget_type": "operations_summary_short", "title": "Операции",
      "tab": "details.operations",
      "config": {"activity_level": "raw", "limit": 50},
