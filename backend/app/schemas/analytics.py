@@ -19,6 +19,7 @@ class ReworkTableResponse(BaseModel):
 
 class VariantRow(BaseModel):
     trace: list[str]
+    path_hash: str  # T46: стабильный 16-символьный ID варианта
     n_cases: int
     avg_duration_seconds: float
     example_case_ids: list[str]
@@ -47,6 +48,7 @@ class DFGResponse(BaseModel):
 class PathRow(BaseModel):
     index: int
     trace: list[str]
+    path_hash: str  # T46: стабильный 16-символьный ID варианта
     n_cases: int
     avg_duration_seconds: float
     case_ids: list[str]

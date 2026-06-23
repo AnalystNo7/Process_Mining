@@ -121,6 +121,7 @@ async def top_paths(
         variants=[
             VariantRow(
                 trace=list(row["trace"]),
+                path_hash=str(row["path_hash"]),
                 n_cases=int(row["n_cases"]),
                 avg_duration_seconds=float(row["avg_duration_seconds"]),
                 example_case_ids=list(row["example_case_ids"]),
@@ -208,6 +209,7 @@ async def process_map(
             PathRow(
                 index=idx,
                 trace=list(row["trace"]),
+                path_hash=str(row["path_hash"]),
                 n_cases=int(row["n_cases"]),
                 avg_duration_seconds=float(row["avg_duration_seconds"]),
                 case_ids=list(row["case_ids"]),

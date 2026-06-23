@@ -6,11 +6,13 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -97,6 +99,39 @@ class VirtualDataset(Base):
     )
     is_personal: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")
+    )
+
+
+class CasePath(Base):
+    """Кэш уникальных путей (вариантов) для виртуального датасета.
+    Считается асинхронной Celery-задачей при готовности VirtualDataset (T46).
+    `path_hash` — первые 16 hex-символов sha1 от JSON-сериализованной
+    последовательности активностей; стабильный ID для копирования в UI.
+    """
+
+    __tablename__ = "case_paths"
+    __table_args__ = (
+        UniqueConstraint(
+            "virtual_dataset_id", "path_hash", name="uq_case_paths_dataset_hash"
+        ),
+        Index("idx_case_paths_dataset", "virtual_dataset_id"),
+        Index("idx_case_paths_dataset_n_cases", "virtual_dataset_id", "n_cases"),
+        {"schema": "core"},
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    virtual_dataset_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("core.virtual_datasets.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    path_hash: Mapped[str] = mapped_column(String(16), nullable=False)
+    activities: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    n_cases: Mapped[int] = mapped_column(Integer, nullable=False)
+    avg_duration_seconds: Mapped[float] = mapped_column(Float, nullable=False)
+    sample_case_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 

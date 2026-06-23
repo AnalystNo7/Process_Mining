@@ -1,4 +1,4 @@
-import { DownloadOutlined } from '@ant-design/icons';
+import { CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Button,
@@ -6,11 +6,13 @@ import {
   Checkbox,
   Empty,
   List,
+  message,
   Select,
   Slider,
   Space,
   Spin,
   Table,
+  Tooltip,
   Typography,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
@@ -272,6 +274,15 @@ export function ProcessGraphTab({
         locale={{ emptyText: 'Нет путей' }}
         renderItem={(path) => {
           const selected = selectedPaths.includes(path.index);
+          const handleCopyId = async (event: React.MouseEvent) => {
+            event.stopPropagation();
+            try {
+              await navigator.clipboard.writeText(path.path_hash);
+              void message.success(`ID пути скопирован: ${path.path_hash}`);
+            } catch {
+              void message.error('Не удалось скопировать в буфер обмена');
+            }
+          };
           return (
             <List.Item
               onClick={() => togglePath(path.index)}
@@ -282,16 +293,26 @@ export function ProcessGraphTab({
                 paddingRight: 8,
               }}
             >
-              <Space>
-                <Checkbox checked={selected} />
-                <span>
-                  <Typography.Text strong>Путь {path.index + 1}</Typography.Text>
-                  <br />
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    {path.trace.length} шагов · {path.n_cases} экз. ·{' '}
-                    {formatDuration(path.avg_duration_seconds)}
-                  </Typography.Text>
-                </span>
+              <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                <Space>
+                  <Checkbox checked={selected} />
+                  <span>
+                    <Typography.Text strong>Путь {path.index + 1}</Typography.Text>
+                    <br />
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      {path.trace.length} шагов · {path.n_cases} экз. ·{' '}
+                      {formatDuration(path.avg_duration_seconds)}
+                    </Typography.Text>
+                  </span>
+                </Space>
+                <Tooltip title={`Скопировать ID: ${path.path_hash}`}>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CopyOutlined />}
+                    onClick={handleCopyId}
+                  />
+                </Tooltip>
               </Space>
             </List.Item>
           );

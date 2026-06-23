@@ -11,6 +11,7 @@ EXPECTED_TABLES = {
     "core.sla_rules",
     "core.virtual_datasets",
     "core.named_slices",
+    "core.case_paths",
     "core.dashboards",
     "core.dashboard_widgets",
     "core.annotations",

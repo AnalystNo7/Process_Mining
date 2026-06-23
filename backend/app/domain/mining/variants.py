@@ -1,10 +1,29 @@
 """Варианты процесса и анализ путей (см. 02_DOMAIN_LOGIC.md)."""
 
+import hashlib
+import json
+from collections.abc import Sequence
 from typing import Any
 
 import pandas as pd
 
 from app.domain.mining.duration import compute_case_duration
+
+
+def compute_path_hash(activities: Sequence[str]) -> str:
+    """Стабильный 16-символьный (hex) идентификатор пути из последовательности
+    активностей. Используется в `case_paths.path_hash` и в ответах API
+    `/top-paths`, `/process-map` — пользователь может скопировать его в UI и
+    однозначно ссылаться на конкретный вариант (T46).
+
+    Параметры:
+        activities: упорядоченный список названий операций варианта.
+    Возвращает:
+        Первые 16 hex-символов sha1 от JSON-представления списка (ensure_ascii=False).
+        Регистр и пробелы операций сохраняются (имена операций — часть ключа).
+    """
+    serialized = json.dumps(list(activities), ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha1(serialized.encode("utf-8")).hexdigest()[:16]
 
 
 def get_case_traces(df: pd.DataFrame, activity_col: str = "activity") -> pd.Series:
@@ -20,10 +39,11 @@ def get_case_traces(df: pd.DataFrame, activity_col: str = "activity") -> pd.Seri
 def get_top_n_variants(
     df: pd.DataFrame, n: int = 5, activity_col: str = "activity"
 ) -> pd.DataFrame:
-    """Топ-N уникальных трасс: trace | n_cases | avg_duration_seconds |
+    """Топ-N уникальных трасс: trace | path_hash | n_cases | avg_duration_seconds |
     example_case_ids | case_ids. Сортировка по n_cases убыв."""
     columns = [
         "trace",
+        "path_hash",
         "n_cases",
         "avg_duration_seconds",
         "example_case_ids",
@@ -41,6 +61,7 @@ def get_top_n_variants(
         variants.append(
             {
                 "trace": trace,
+                "path_hash": compute_path_hash(trace),
                 "n_cases": len(cases_list),
                 "avg_duration_seconds": float(avg_dur),
                 "example_case_ids": cases_list[:5],

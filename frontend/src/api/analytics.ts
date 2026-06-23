@@ -42,6 +42,8 @@ export interface EventFilter {
 export interface PathRow {
   index: number;
   trace: string[];
+  /** T46: стабильный 16-символьный ID варианта (sha1[:16] от JSON активностей). */
+  path_hash: string;
   n_cases: number;
   avg_duration_seconds: number;
   case_ids: string[];

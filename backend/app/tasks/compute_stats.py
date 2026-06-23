@@ -3,9 +3,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
+from sqlalchemy import delete
 
 from app.celery_app import celery_app
-from app.db.models.datasets import VirtualDataset
+from app.db.models.datasets import CasePath, VirtualDataset
 from app.db.repositories.event_log import PostgresEventLogRepository
 from app.db.session import AsyncTaskSessionLocal
 from app.domain.mining.duration import compute_case_duration
@@ -14,6 +15,7 @@ from app.domain.mining.rework import compute_duration_comparison, compute_global
 from app.domain.mining.role_mapping import apply_role_mapping
 from app.domain.mining.variants import (
     compute_mean_occurrence_pct,
+    compute_path_hash,
     compute_variability_pct,
     get_case_traces,
 )
@@ -65,9 +67,35 @@ def build_stats(df: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+async def _recompute_case_paths(db: Any, vd_id: int, df: pd.DataFrame) -> None:
+    """T46: пересчитывает уникальные варианты процесса и кэширует их в
+    `core.case_paths`. Старые записи удаляются — таблица всегда отражает
+    актуальное состояние датасета."""
+    await db.execute(delete(CasePath).where(CasePath.virtual_dataset_id == vd_id))
+    if df.empty:
+        return
+
+    traces = get_case_traces(df)
+    case_dur = compute_case_duration(df).set_index("case_id")
+    for trace, case_ids in traces.groupby(traces).groups.items():
+        cases_list = [str(c) for c in case_ids]
+        avg_dur = case_dur.loc[list(case_ids), "duration_seconds"].mean()
+        db.add(
+            CasePath(
+                virtual_dataset_id=vd_id,
+                path_hash=compute_path_hash(trace),
+                activities=list(trace),
+                n_cases=len(cases_list),
+                avg_duration_seconds=float(avg_dur),
+                sample_case_ids=cases_list[:5],
+            )
+        )
+
+
 async def compute_and_store_stats(db: Any, vd_id: int) -> None:
-    """Загружает событийный лог виртуального датасета, считает KPI и
-    сохраняет их в virtual_datasets.cached_stats."""
+    """Загружает событийный лог виртуального датасета, считает KPI,
+    сохраняет их в virtual_datasets.cached_stats и пересчитывает
+    кэш вариантов процесса в core.case_paths (T46)."""
     virtual = await db.get(VirtualDataset, vd_id)
     if virtual is None:
         return
@@ -80,6 +108,7 @@ async def compute_and_store_stats(db: Any, vd_id: int) -> None:
         df = apply_filter(df, parse_filters(config_filters))
 
     virtual.cached_stats = build_stats(df)
+    await _recompute_case_paths(db, vd_id, df)
     await db.commit()
 
 
