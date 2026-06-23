@@ -11,15 +11,27 @@ interface XYPoint {
   y: number;
 }
 
-const CHART_HEIGHT = 280;
-
 const BASE_LAYOUT: Partial<Layout> = {
   margin: { l: 56, r: 16, t: 16, b: 48 },
   autosize: true,
 };
 
-const PLOT_STYLE = { width: '100%', height: CHART_HEIGHT };
+// Plot занимает всю доступную высоту/ширину карточки. WidgetCard.body — flex-колонка
+// (см. WidgetCard.tsx); снаружи Plot обёрнут в `PlotBox` с flex:1, чтобы Plotly
+// получал реальную высоту контейнера и пересчитывал размеры через useResizeHandler.
+const PLOT_STYLE = { width: '100%', height: '100%' };
 const PLOT_CONFIG = { displayModeBar: false, responsive: true };
+
+const PLOT_BOX_STYLE: React.CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  display: 'flex',
+  width: '100%',
+};
+
+function PlotBox({ children }: { children: React.ReactNode }) {
+  return <div style={PLOT_BOX_STYLE}>{children}</div>;
+}
 
 function BarOrLine({
   data,
@@ -36,13 +48,15 @@ function BarOrLine({
     marker: { color: '#1677ff' },
   };
   return (
-    <Plot
-      data={[trace] as Data[]}
-      layout={BASE_LAYOUT}
-      style={PLOT_STYLE}
-      config={PLOT_CONFIG}
-      useResizeHandler
-    />
+    <PlotBox>
+      <Plot
+        data={[trace] as Data[]}
+        layout={BASE_LAYOUT}
+        style={PLOT_STYLE}
+        config={PLOT_CONFIG}
+        useResizeHandler
+      />
+    </PlotBox>
   );
 }
 
@@ -76,13 +90,15 @@ function MonthlyDynamics({
     yaxis2: { overlaying: 'y', side: 'right' },
   };
   return (
-    <Plot
-      data={traces as Data[]}
-      layout={layout}
-      style={PLOT_STYLE}
-      config={PLOT_CONFIG}
-      useResizeHandler
-    />
+    <PlotBox>
+      <Plot
+        data={traces as Data[]}
+        layout={layout}
+        style={PLOT_STYLE}
+        config={PLOT_CONFIG}
+        useResizeHandler
+      />
+    </PlotBox>
   );
 }
 
@@ -96,13 +112,15 @@ function Heatmap({
   const lookup = new Map(data.cells.map((c) => [`${c.x}|${c.y}`, c.value]));
   const z = ys.map((y) => xs.map((x) => lookup.get(`${x}|${y}`) ?? 0));
   return (
-    <Plot
-      data={[{ type: 'heatmap', x: xs, y: ys, z, colorscale: 'Blues' }] as Data[]}
-      layout={BASE_LAYOUT}
-      style={PLOT_STYLE}
-      config={PLOT_CONFIG}
-      useResizeHandler
-    />
+    <PlotBox>
+      <Plot
+        data={[{ type: 'heatmap', x: xs, y: ys, z, colorscale: 'Blues' }] as Data[]}
+        layout={BASE_LAYOUT}
+        style={PLOT_STYLE}
+        config={PLOT_CONFIG}
+        useResizeHandler
+      />
+    </PlotBox>
   );
 }
 
@@ -307,13 +325,15 @@ function OperationsDynamics({
     yaxis2: { overlaying: 'y', side: 'right', title: { text: 'Операций на экз.' } },
   };
   return (
-    <Plot
-      data={traces as Data[]}
-      layout={layout}
-      style={PLOT_STYLE}
-      config={PLOT_CONFIG}
-      useResizeHandler
-    />
+    <PlotBox>
+      <Plot
+        data={traces as Data[]}
+        layout={layout}
+        style={PLOT_STYLE}
+        config={PLOT_CONFIG}
+        useResizeHandler
+      />
+    </PlotBox>
   );
 }
 
@@ -334,13 +354,15 @@ function EventsPerCaseHistogram({
     yaxis: { title: { text: data.y_label } },
   };
   return (
-    <Plot
-      data={[trace] as Data[]}
-      layout={layout}
-      style={PLOT_STYLE}
-      config={PLOT_CONFIG}
-      useResizeHandler
-    />
+    <PlotBox>
+      <Plot
+        data={[trace] as Data[]}
+        layout={layout}
+        style={PLOT_STYLE}
+        config={PLOT_CONFIG}
+        useResizeHandler
+      />
+    </PlotBox>
   );
 }
 
@@ -382,13 +404,15 @@ function CaseFlow({
     legend: { orientation: 'h' },
   };
   return (
-    <Plot
-      data={traces as Data[]}
-      layout={layout}
-      style={PLOT_STYLE}
-      config={PLOT_CONFIG}
-      useResizeHandler
-    />
+    <PlotBox>
+      <Plot
+        data={traces as Data[]}
+        layout={layout}
+        style={PLOT_STYLE}
+        config={PLOT_CONFIG}
+        useResizeHandler
+      />
+    </PlotBox>
   );
 }
 

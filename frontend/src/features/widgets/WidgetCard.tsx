@@ -44,7 +44,14 @@ export function WidgetCard({
         height: '100%',
         outline: editing ? '1px dashed var(--gpc-blue)' : undefined,
       }}
-      styles={{ body: { height: 'calc(100% - 40px)', overflow: 'auto' } }}
+      styles={{
+        body: {
+          height: 'calc(100% - 40px)',
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+        },
+      }}
       extra={
         <Popconfirm
           title="Удалить виджет?"
