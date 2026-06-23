@@ -15,7 +15,7 @@ from app.domain.mining.dynamics import (
     compute_operations_dynamics,
 )
 from app.domain.mining.filters import parse_filters
-from app.domain.mining.graph import build_dfg, filter_dfg
+from app.domain.mining.graph import build_dfg, filter_dfg, limit_dfg
 from app.domain.mining.resources import compute_resource_workload
 from app.domain.mining.rework import (
     compute_global_rework_pct,
@@ -234,8 +234,12 @@ async def _resource_analysis_table(
     }
 
 
-def _dfg_to_cytoscape(df: pd.DataFrame, column: str, min_edge_pct: float) -> dict[str, Any]:
-    graph = filter_dfg(build_dfg(df, column), min_edge_pct)
+def _dfg_to_cytoscape(
+    df: pd.DataFrame, column: str, min_edge_pct: float, max_nodes: int
+) -> dict[str, Any]:
+    # T43.1: применяем limit_dfg, чтобы Cytoscape dagre-layout (O(n²)) не
+    # зависал на датасетах с 50+ операциями. Дефолты задаются в _process_graph.
+    graph = limit_dfg(filter_dfg(build_dfg(df, column), min_edge_pct), max_nodes)
     return {
         "nodes": [
             {
@@ -271,7 +275,15 @@ async def _process_graph(
 ) -> dict[str, Any]:
     df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
     column = analytics_service.activity_column(config.get("activity_level", "raw"))
-    return _dfg_to_cytoscape(df, column, float(config.get("min_edge_frequency_pct", 0.0)))
+    # Safe defaults для дашборд-виджета (T43.1): без limit_dfg dagre-layout
+    # Cytoscape висит на сотнях узлов. 5% порог и 60 узлов — те же значения,
+    # что использует /analytics/process-map endpoint.
+    return _dfg_to_cytoscape(
+        df,
+        column,
+        float(config.get("min_edge_frequency_pct", 5.0)),
+        int(config.get("max_nodes", 60)),
+    )
 
 
 async def _top_paths_graph(

@@ -118,3 +118,16 @@ def test_process_subtabs_have_default_widgets() -> None:
 def test_default_widgets_count() -> None:
     """T43: после наполнения процесса всего 20 виджетов (13 overview + 6 process + 1 details)."""
     assert len(_DEFAULT_WIDGETS) == 20
+
+
+def test_process_graph_widget_has_safe_defaults() -> None:
+    """T43.1: process_graph должен идти с дефолтами max_nodes/min_edge_frequency_pct,
+    иначе Cytoscape dagre-layout висит на крупных датасетах."""
+    pg = next(
+        w for w in _PROCESS_WIDGETS
+        if w["widget_type"] == "process_graph" and w["tab"] == "process.process"
+    )
+    assert pg["config"].get("max_nodes") == 60, "T43.1: нужен max_nodes=60"
+    assert pg["config"].get("min_edge_frequency_pct") == 5.0, (
+        "T43.1: нужен min_edge_frequency_pct=5.0"
+    )

@@ -99,7 +99,8 @@ _OVERVIEW_WIDGETS: list[dict[str, Any]] = [
 # Все widget_type уже обрабатываются widget_data_service._HANDLERS.
 _PROCESS_WIDGETS: list[dict[str, Any]] = [
     {"widget_type": "process_graph", "title": "Граф процесса",
-     "tab": "process.process", "config": {},
+     "tab": "process.process",
+     "config": {"max_nodes": 60, "min_edge_frequency_pct": 5.0},
      "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 10},
     {"widget_type": "operations_dynamics", "title": "Динамика количества операций",
      "tab": "process.duration", "config": {},

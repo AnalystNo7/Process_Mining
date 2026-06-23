@@ -18,6 +18,9 @@ export function WidgetCard({
   const { data, isLoading, isError } = useQuery({
     queryKey: ['widget-data', widget.id],
     queryFn: () => getWidgetData(widget.id),
+    // T43.1: при ошибке (таймаут, 500) не ретраим бесконечно — сразу
+    // покажем Empty с сообщением, чтобы пользователь не сидел на <Spin />.
+    retry: 1,
   });
 
   return (
