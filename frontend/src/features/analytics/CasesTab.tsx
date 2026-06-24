@@ -15,6 +15,7 @@ import {
   listCases,
   type CaseEvent,
   type CaseSummary,
+  type EventFilter,
 } from '@/api/analytics';
 import { formatDateTime, formatDuration } from '@/lib/format';
 
@@ -23,16 +24,26 @@ const PAGE_SIZE = 50;
 export function CasesTab({
   projectId,
   vdId,
+  externalFilter,
 }: {
   projectId: number;
   vdId: number;
+  /** T44: фильтры из дашборда (при встраивании в подвкладку details.cases). */
+  externalFilter?: EventFilter;
 }) {
   const [page, setPage] = useState(1);
   const [openCaseId, setOpenCaseId] = useState<string | null>(null);
 
+  const filterKey = JSON.stringify(externalFilter ?? {});
+
   const { data, isLoading } = useQuery({
-    queryKey: ['cases', projectId, vdId, page],
-    queryFn: () => listCases(projectId, vdId, { page, page_size: PAGE_SIZE }),
+    queryKey: ['cases', projectId, vdId, page, filterKey],
+    queryFn: () =>
+      listCases(projectId, vdId, {
+        page,
+        page_size: PAGE_SIZE,
+        filters: externalFilter,
+      }),
   });
 
   const columns: TableColumnsType<CaseSummary> = [

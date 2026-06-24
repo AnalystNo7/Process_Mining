@@ -4,6 +4,8 @@ import GridLayout, { type Layout } from 'react-grid-layout';
 
 import type { EventFilter } from '@/api/analytics';
 import type { Widget, WidgetLayoutItem } from '@/api/dashboards';
+import { CasesTab } from '@/features/analytics/CasesTab';
+import { DatasetTab } from '@/features/analytics/DatasetTab';
 import { ProcessGraphTab } from '@/features/analytics/ProcessGraphTab';
 import { WidgetCard } from '@/features/widgets/WidgetCard';
 
@@ -83,6 +85,18 @@ export function DashboardTabs({
           embedded
           externalFilter={globalFilters}
         />
+      );
+    }
+    // T44: подвкладки «Детали → Экземпляры» и «Детали → Датасет» рендерятся
+    // готовыми компонентами (drill-down к событиям и сырой лог), а не сеткой.
+    if (tabKey === 'details.cases') {
+      return (
+        <CasesTab projectId={projectId} vdId={vdId} externalFilter={globalFilters} />
+      );
+    }
+    if (tabKey === 'details.dataset') {
+      return (
+        <DatasetTab projectId={projectId} vdId={vdId} externalFilter={globalFilters} />
       );
     }
     return (

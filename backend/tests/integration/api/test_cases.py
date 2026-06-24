@@ -110,3 +110,40 @@ async def test_case_detail_not_found(client, analyst_user, db_session, tmp_path)
         headers=analyst_user.headers,
     )
     assert resp.status_code == 404
+
+
+async def test_list_events(client, analyst_user, db_session, tmp_path) -> None:
+    """T44: эндпоинт /events отдаёт сырые события постранично."""
+    project_id, vd_id = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/events",
+        headers=analyst_user.headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    # 10 кейсов × 4 события = 40 событий.
+    assert data["total"] == 40
+    assert len(data["items"]) == 40
+    first = data["items"][0]
+    assert {"case_id", "activity", "timestamp_start", "timestamp_end",
+            "resource", "department", "own_duration_seconds"} <= set(first)
+
+
+async def test_list_events_pagination(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    project_id, vd_id = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/events",
+        headers=analyst_user.headers,
+        params={"page": 2, "page_size": 10},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["items"]) == 10
+    assert data["total"] == 40
+    assert data["page"] == 2

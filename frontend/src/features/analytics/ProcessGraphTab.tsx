@@ -67,7 +67,11 @@ export function ProcessGraphTab({
 }) {
   const [localFilters, setLocalFilters] = useState<EventFilter>({});
   // В embedded-режиме игнорируем локальный state и берём фильтры от родителя.
-  const filters: EventFilter = embedded ? (externalFilter ?? {}) : localFilters;
+  // useMemo — чтобы ссылка на объект не менялась каждый рендер (стабильные deps).
+  const filters = useMemo<EventFilter>(
+    () => (embedded ? (externalFilter ?? {}) : localFilters),
+    [embedded, externalFilter, localFilters],
+  );
   const [mode, setMode] = useState<'top_paths' | 'frequency'>('top_paths');
   const [activityLevel, setActivityLevel] = useState('raw');
   const [n, setN] = useState(5);

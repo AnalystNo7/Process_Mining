@@ -39,3 +39,20 @@ class CaseDetailResponse(BaseModel):
     total_duration_seconds: float
     has_rework: bool
     n_events: int
+
+
+class RawEventRow(BaseModel):
+    case_id: str
+    activity: str
+    timestamp_start: datetime
+    timestamp_end: datetime
+    resource: str | None
+    department: str | None
+    own_duration_seconds: float
+
+
+class EventListResponse(BaseModel):
+    items: list[RawEventRow]
+    total: int
+    page: int
+    page_size: int

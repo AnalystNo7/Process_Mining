@@ -43,6 +43,8 @@ from app.schemas.cases import (
     CaseEvent,
     CaseListResponse,
     CaseSummary,
+    EventListResponse,
+    RawEventRow,
 )
 from app.schemas.sla import SLAComplianceResponse, SLAComplianceRow
 from app.services import analytics_service, case_service, virtual_dataset_service
@@ -384,6 +386,30 @@ async def list_cases(
     rows, total = case_service.list_cases(df, page=page, page_size=page_size)
     return CaseListResponse(
         items=[CaseSummary(**row) for row in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/events", response_model=EventListResponse)
+async def list_events(
+    project_id: int,
+    vd_id: int,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    filters: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> EventListResponse:
+    """T44: постраничный список сырых событий датасета (подвкладка «Датасет»)."""
+    virtual = await _get_vd(db, project_id, vd_id)
+    df = await analytics_service.load_vd_dataframe(
+        db, virtual, analytics_service.filter_from_query(filters)
+    )
+    rows, total = case_service.list_events(df, page=page, page_size=page_size)
+    return EventListResponse(
+        items=[RawEventRow(**row) for row in rows],
         total=total,
         page=page,
         page_size=page_size,

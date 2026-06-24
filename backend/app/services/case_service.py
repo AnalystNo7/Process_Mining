@@ -42,6 +42,35 @@ def list_cases(
     return rows, total
 
 
+def list_events(
+    df: pd.DataFrame, page: int = 1, page_size: int = 50
+) -> tuple[list[dict[str, Any]], int]:
+    """Постраничный список сырых событий датасета (T44, подвкладка «Датасет»).
+    Сортировка по (case_id, timestamp_start) — стабильный порядок трасс."""
+    if len(df) == 0:
+        return [], 0
+    ordered = df.sort_values(["case_id", "timestamp_start", "timestamp_end"])
+    total = len(ordered)
+    page_slice = ordered.iloc[(page - 1) * page_size : page * page_size]
+    rows: list[dict[str, Any]] = []
+    for _, row in page_slice.iterrows():
+        start = row["timestamp_start"]
+        end = row["timestamp_end"]
+        own_duration = (end - start).total_seconds()
+        rows.append(
+            {
+                "case_id": str(row["case_id"]),
+                "activity": str(row["activity"]),
+                "timestamp_start": start,
+                "timestamp_end": end,
+                "resource": _clean(row.get("resource")),
+                "department": _clean(row.get("department")),
+                "own_duration_seconds": float(own_duration),
+            }
+        )
+    return rows, total
+
+
 def case_detail(df: pd.DataFrame, case_id: str) -> dict[str, Any]:
     """Полная трасса кейса с длительностями и пометками повторов."""
     case_df = df[df["case_id"] == case_id]

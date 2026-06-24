@@ -137,6 +137,23 @@ export interface CaseListResponse {
   page_size: number;
 }
 
+export interface RawEventRow {
+  case_id: string;
+  activity: string;
+  timestamp_start: string;
+  timestamp_end: string;
+  resource: string | null;
+  department: string | null;
+  own_duration_seconds: number;
+}
+
+export interface EventListResponse {
+  items: RawEventRow[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export interface CaseEvent {
   activity: string;
   timestamp_start: string;
@@ -248,11 +265,25 @@ export async function getFilterOptions(
 export async function listCases(
   projectId: number,
   vdId: number,
-  params: { page: number; page_size: number }
+  params: { page: number; page_size: number; filters?: EventFilter }
 ): Promise<CaseListResponse> {
+  const { filters, ...rest } = params;
   const { data } = await apiClient.get<CaseListResponse>(
     `${analyticsBase(projectId, vdId)}/cases`,
-    { params }
+    { params: { ...rest, filters: serializeFilters(filters) } }
+  );
+  return data;
+}
+
+export async function listEvents(
+  projectId: number,
+  vdId: number,
+  params: { page: number; page_size: number; filters?: EventFilter }
+): Promise<EventListResponse> {
+  const { filters, ...rest } = params;
+  const { data } = await apiClient.get<EventListResponse>(
+    `${analyticsBase(projectId, vdId)}/events`,
+    { params: { ...rest, filters: serializeFilters(filters) } }
   );
   return data;
 }
