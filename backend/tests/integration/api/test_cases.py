@@ -131,6 +131,25 @@ async def test_list_events(client, analyst_user, db_session, tmp_path) -> None:
             "resource", "department", "own_duration_seconds"} <= set(first)
 
 
+async def test_events_per_case_distribution(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    """T42: распределение «число событий в кейсе → число таких кейсов».
+    В тестовом датасете все 10 кейсов имеют ровно 4 события."""
+    project_id, vd_id = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}"
+        "/analytics/events-per-case-distribution",
+        headers=analyst_user.headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total_cases"] == 10
+    assert data["items"] == [{"events_in_case": 4, "n_cases": 10}]
+
+
 async def test_list_events_pagination(
     client, analyst_user, db_session, tmp_path
 ) -> None:

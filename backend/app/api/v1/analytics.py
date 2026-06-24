@@ -10,7 +10,10 @@ from app.db.models.projects import Project
 from app.db.models.users import User
 from app.db.session import get_db
 from app.domain.mining.bpmn_export import dfg_to_bpmn
-from app.domain.mining.dynamics import compute_monthly_dynamics
+from app.domain.mining.dynamics import (
+    compute_events_per_case_histogram,
+    compute_monthly_dynamics,
+)
 from app.domain.mining.graph import build_dfg, build_top_paths_graph, filter_dfg, limit_dfg
 from app.domain.mining.resources import compute_resource_workload
 from app.domain.mining.rework import (
@@ -24,6 +27,8 @@ from app.domain.mining.workday import WorkdayCalculator
 from app.schemas.analytics import (
     CytoscapeElement,
     DFGResponse,
+    EventsPerCaseBin,
+    EventsPerCaseDistribution,
     FilterOptionsResponse,
     MonthlyDynamicsResponse,
     MonthlyDynamicsRow,
@@ -367,6 +372,34 @@ async def monthly_dynamics(
             for _, row in dynamics_df.iterrows()
         ]
     )
+
+
+@router.get(
+    "/events-per-case-distribution", response_model=EventsPerCaseDistribution
+)
+async def events_per_case_distribution(
+    project_id: int,
+    vd_id: int,
+    filters: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> EventsPerCaseDistribution:
+    """T42: распределение «число событий в кейсе → число таких кейсов».
+    Используется в подвкладке «Стандартные метрики»."""
+    virtual = await _get_vd(db, project_id, vd_id)
+    df = await analytics_service.load_vd_dataframe(
+        db, virtual, analytics_service.filter_from_query(filters)
+    )
+    hist = compute_events_per_case_histogram(df)
+    items = [
+        EventsPerCaseBin(
+            events_in_case=int(row["events_in_case"]),
+            n_cases=int(row["n_cases"]),
+        )
+        for _, row in hist.iterrows()
+    ]
+    total = sum(item.n_cases for item in items)
+    return EventsPerCaseDistribution(items=items, total_cases=total)
 
 
 @router.get("/cases", response_model=CaseListResponse)

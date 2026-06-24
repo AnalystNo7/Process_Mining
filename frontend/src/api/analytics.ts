@@ -137,6 +137,16 @@ export interface CaseListResponse {
   page_size: number;
 }
 
+export interface EventsPerCaseBin {
+  events_in_case: number;
+  n_cases: number;
+}
+
+export interface EventsPerCaseDistribution {
+  items: EventsPerCaseBin[];
+  total_cases: number;
+}
+
 export interface RawEventRow {
   case_id: string;
   activity: string;
@@ -271,6 +281,19 @@ export async function listCases(
   const { data } = await apiClient.get<CaseListResponse>(
     `${analyticsBase(projectId, vdId)}/cases`,
     { params: { ...rest, filters: serializeFilters(filters) } }
+  );
+  return data;
+}
+
+export async function getEventsPerCaseDistribution(
+  projectId: number,
+  vdId: number,
+  params: { filters?: EventFilter } = {}
+): Promise<EventsPerCaseDistribution> {
+  const { filters } = params;
+  const { data } = await apiClient.get<EventsPerCaseDistribution>(
+    `${analyticsBase(projectId, vdId)}/events-per-case-distribution`,
+    { params: { filters: serializeFilters(filters) } }
   );
   return data;
 }

@@ -99,6 +99,16 @@ class MonthlyDynamicsResponse(BaseModel):
     items: list[MonthlyDynamicsRow]
 
 
+class EventsPerCaseBin(BaseModel):
+    events_in_case: int
+    n_cases: int
+
+
+class EventsPerCaseDistribution(BaseModel):
+    items: list[EventsPerCaseBin]
+    total_cases: int
+
+
 class ResourceRow(BaseModel):
     resource: str
     n_cases: int

@@ -7,6 +7,7 @@ import type { Widget, WidgetLayoutItem } from '@/api/dashboards';
 import { CasesTab } from '@/features/analytics/CasesTab';
 import { DatasetTab } from '@/features/analytics/DatasetTab';
 import { ProcessGraphTab } from '@/features/analytics/ProcessGraphTab';
+import { StandardMetricsTab } from '@/features/analytics/StandardMetricsTab';
 import { WidgetCard } from '@/features/widgets/WidgetCard';
 
 import {
@@ -76,6 +77,17 @@ export function DashboardTabs({
   // (embedded), а не обычный GridLayout — там панель путей, частотный фильтр,
   // таблица операций и динамика по месяцам.
   const renderSubtabContent = (tabKey: string) => {
+    // T42: «Стандартные метрики» — кастомный компонент с 3 таблицами
+    // предрассчитанных показателей (cached_stats + operations + распределение).
+    if (tabKey === 'standard_metrics') {
+      return (
+        <StandardMetricsTab
+          projectId={projectId}
+          vdId={vdId}
+          externalFilter={globalFilters}
+        />
+      );
+    }
     if (tabKey === 'process.process') {
       return (
         <ProcessGraphTab
