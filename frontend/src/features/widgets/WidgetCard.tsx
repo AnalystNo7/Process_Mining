@@ -56,14 +56,16 @@ export function WidgetCard({
         },
       }}
       extra={
-        <Popconfirm
-          title="Удалить виджет?"
-          okText="Удалить"
-          cancelText="Отмена"
-          onConfirm={() => onDelete(widget.id)}
-        >
-          <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-        </Popconfirm>
+        editing ? (
+          <Popconfirm
+            title="Удалить виджет?"
+            okText="Удалить"
+            cancelText="Отмена"
+            onConfirm={() => onDelete(widget.id)}
+          >
+            <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        ) : undefined
       }
     >
       {isLoading ? (
