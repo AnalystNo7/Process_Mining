@@ -31,6 +31,7 @@ import type { GraphHighlight } from '@/components/ProcessGraph';
 import { FilterPanel } from '@/features/analytics/FilterPanel';
 import { formatDuration } from '@/lib/format';
 import { getErrorMessage, notifyError } from '@/lib/notify';
+import { DEFAULT_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS_STR } from '@/lib/table';
 
 const START = '__start__';
 const END = '__end__';
@@ -200,6 +201,8 @@ export function ProcessGraphTab({
       dataIndex: 'activity',
       key: 'activity',
       ellipsis: true,
+      sorter: (a: OperationSummaryRow, b: OperationSummaryRow) =>
+        a.activity.localeCompare(b.activity, 'ru'),
     },
     {
       title: 'Кол-во экземпляров',
@@ -236,6 +239,8 @@ export function ProcessGraphTab({
       dataIndex: 'avg_own_duration_seconds',
       key: 'avg',
       width: 110,
+      sorter: (a: OperationSummaryRow, b: OperationSummaryRow) =>
+        a.avg_own_duration_seconds - b.avg_own_duration_seconds,
       render: (value: number) => formatDuration(value),
     },
     {
@@ -243,6 +248,8 @@ export function ProcessGraphTab({
       dataIndex: 'median_own_duration_seconds',
       key: 'median',
       width: 110,
+      sorter: (a: OperationSummaryRow, b: OperationSummaryRow) =>
+        a.median_own_duration_seconds - b.median_own_duration_seconds,
       render: (value: number) => formatDuration(value),
     },
     {
@@ -250,6 +257,8 @@ export function ProcessGraphTab({
       dataIndex: 'avg_share_pct',
       key: 'share',
       width: 130,
+      sorter: (a: OperationSummaryRow, b: OperationSummaryRow) =>
+        a.avg_share_pct - b.avg_share_pct,
       render: (value: number) => `${value.toFixed(1)}%`,
     },
   ];
@@ -432,7 +441,12 @@ export function ProcessGraphTab({
                 dataSource={operations}
                 columns={operationColumns}
                 loading={operationsQuery.isLoading}
-                pagination={{ pageSize: 10, hideOnSinglePage: true }}
+                pagination={{
+                  defaultPageSize: DEFAULT_PAGE_SIZE,
+                  showSizeChanger: true,
+                  pageSizeOptions: TABLE_PAGE_SIZE_OPTIONS_STR,
+                  hideOnSinglePage: true,
+                }}
                 scroll={{ x: true }}
               />
               <Typography.Paragraph

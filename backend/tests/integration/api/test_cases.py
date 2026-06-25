@@ -131,6 +131,80 @@ async def test_list_events(client, analyst_user, db_session, tmp_path) -> None:
             "resource", "department", "own_duration_seconds"} <= set(first)
 
 
+async def test_list_cases_sort_asc(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    """T49: ?sort_by=n_events&sort_order=asc сортирует по возрастанию."""
+    project_id, vd_id = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/cases",
+        headers=analyst_user.headers,
+        params={"sort_by": "n_events", "sort_order": "asc"},
+    )
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    ns = [it["n_events"] for it in items]
+    assert ns == sorted(ns), f"ожидали возрастающий порядок, получили {ns}"
+
+
+async def test_list_cases_invalid_sort_falls_back(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    """T49: неизвестное поле sort_by → дефолтная сортировка, не 500."""
+    project_id, vd_id = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/cases",
+        headers=analyst_user.headers,
+        params={"sort_by": "DROP_TABLE", "sort_order": "asc"},
+    )
+    assert resp.status_code == 200
+    assert len(resp.json()["items"]) == 10
+
+
+async def test_list_cases_page_size_500_ok(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    """T49: новый лимит page_size — до 500 включительно."""
+    project_id, vd_id = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/cases",
+        headers=analyst_user.headers,
+        params={"page_size": 500},
+    )
+    assert resp.status_code == 200
+    # 501 уже не валидно.
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/cases",
+        headers=analyst_user.headers,
+        params={"page_size": 501},
+    )
+    assert resp.status_code == 422
+
+
+async def test_list_events_sort_by_duration_asc(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    """T49: /events ?sort_by=own_duration_seconds&sort_order=asc."""
+    project_id, vd_id = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    resp = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/analytics/events",
+        headers=analyst_user.headers,
+        params={"sort_by": "own_duration_seconds", "sort_order": "asc"},
+    )
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    ds = [it["own_duration_seconds"] for it in items]
+    assert ds == sorted(ds)
+
+
 async def test_events_per_case_distribution(
     client, analyst_user, db_session, tmp_path
 ) -> None:

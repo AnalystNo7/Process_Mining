@@ -407,7 +407,9 @@ async def list_cases(
     project_id: int,
     vd_id: int,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
+    page_size: int = Query(default=50, ge=1, le=500),
+    sort_by: str | None = Query(default=None),
+    sort_order: Literal["asc", "desc"] = Query(default="desc"),
     filters: str | None = None,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
@@ -416,7 +418,9 @@ async def list_cases(
     df = await analytics_service.load_vd_dataframe(
         db, virtual, analytics_service.filter_from_query(filters)
     )
-    rows, total = case_service.list_cases(df, page=page, page_size=page_size)
+    rows, total = case_service.list_cases(
+        df, page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order
+    )
     return CaseListResponse(
         items=[CaseSummary(**row) for row in rows],
         total=total,
@@ -430,7 +434,9 @@ async def list_events(
     project_id: int,
     vd_id: int,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
+    page_size: int = Query(default=50, ge=1, le=500),
+    sort_by: str | None = Query(default=None),
+    sort_order: Literal["asc", "desc"] = Query(default="desc"),
     filters: str | None = None,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
@@ -440,7 +446,9 @@ async def list_events(
     df = await analytics_service.load_vd_dataframe(
         db, virtual, analytics_service.filter_from_query(filters)
     )
-    rows, total = case_service.list_events(df, page=page, page_size=page_size)
+    rows, total = case_service.list_events(
+        df, page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order
+    )
     return EventListResponse(
         items=[RawEventRow(**row) for row in rows],
         total=total,

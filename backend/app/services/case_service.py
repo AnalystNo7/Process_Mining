@@ -15,16 +15,57 @@ def _clean(value: Any) -> str | None:
     return str(value)
 
 
+# T49: разрешённые поля для серверной сортировки. Защита от sql/column-инъекций.
+_CASES_SORT_FIELDS: frozenset[str] = frozenset(
+    {
+        "case_id",
+        "n_events",
+        "n_unique_activities",
+        "duration_seconds",
+        "has_rework",
+        "start",
+        "end",
+    }
+)
+_EVENTS_SORT_FIELDS: frozenset[str] = frozenset(
+    {
+        "case_id",
+        "activity",
+        "timestamp_start",
+        "timestamp_end",
+        "resource",
+        "department",
+        "own_duration_seconds",
+    }
+)
+
+
 def list_cases(
-    df: pd.DataFrame, page: int = 1, page_size: int = 50
+    df: pd.DataFrame,
+    page: int = 1,
+    page_size: int = 50,
+    sort_by: str | None = None,
+    sort_order: str = "desc",
 ) -> tuple[list[dict[str, Any]], int]:
-    """Список кейсов с базовой статистикой, отсортированный по длительности."""
+    """Список кейсов с базовой статистикой.
+
+    Поведение сортировки (T49):
+      * если sort_by ∈ _CASES_SORT_FIELDS — сортируем по нему;
+      * иначе дефолт `duration_seconds desc` (обратная совместимость);
+      * `sort_order='asc'` → ascending=True, иначе descending.
+    """
     if len(df) == 0:
         return [], 0
-    case_dur = compute_case_duration(df).sort_values(
-        "duration_seconds", ascending=False
-    )
+    case_dur = compute_case_duration(df)
     with_rework, _ = split_cases_by_rework(df)
+    # has_rework — производное поле; добавим в df, чтобы можно было по нему сортировать.
+    case_dur = case_dur.assign(
+        has_rework=case_dur["case_id"].astype(str).isin(with_rework)
+    )
+
+    sort_field = sort_by if sort_by in _CASES_SORT_FIELDS else "duration_seconds"
+    ascending = sort_order == "asc"
+    case_dur = case_dur.sort_values(sort_field, ascending=ascending, kind="mergesort")
     total = len(case_dur)
     page_slice = case_dur.iloc[(page - 1) * page_size : page * page_size]
     rows = [
@@ -33,7 +74,7 @@ def list_cases(
             "n_events": int(row["n_events"]),
             "n_unique_activities": int(row["n_unique_activities"]),
             "duration_seconds": float(row["duration_seconds"]),
-            "has_rework": str(row["case_id"]) in with_rework,
+            "has_rework": bool(row["has_rework"]),
             "start": row["start"],
             "end": row["end"],
         }
@@ -43,13 +84,35 @@ def list_cases(
 
 
 def list_events(
-    df: pd.DataFrame, page: int = 1, page_size: int = 50
+    df: pd.DataFrame,
+    page: int = 1,
+    page_size: int = 50,
+    sort_by: str | None = None,
+    sort_order: str = "desc",
 ) -> tuple[list[dict[str, Any]], int]:
     """Постраничный список сырых событий датасета (T44, подвкладка «Датасет»).
-    Сортировка по (case_id, timestamp_start) — стабильный порядок трасс."""
+
+    Сортировка (T49):
+      * если sort_by ∈ _EVENTS_SORT_FIELDS — основная сортировка по нему;
+        вторичный ключ `(case_id, timestamp_start)` для стабильности трасс;
+      * без sort_by — дефолт `(case_id, timestamp_start, timestamp_end)`.
+    """
     if len(df) == 0:
         return [], 0
-    ordered = df.sort_values(["case_id", "timestamp_start", "timestamp_end"])
+    # own_duration_seconds — вычисляемое поле; добавим, чтобы по нему можно было
+    # сортировать на бэке (фронту он тоже отдаётся в каждой строке).
+    if "own_duration_seconds" not in df.columns:
+        df = df.assign(
+            own_duration_seconds=(df["timestamp_end"] - df["timestamp_start"])
+            .dt.total_seconds()
+        )
+    if sort_by in _EVENTS_SORT_FIELDS:
+        ascending = sort_order == "asc"
+        ordered = df.sort_values(sort_by, ascending=ascending, kind="mergesort")
+    else:
+        ordered = df.sort_values(
+            ["case_id", "timestamp_start", "timestamp_end"], kind="mergesort"
+        )
     total = len(ordered)
     page_slice = ordered.iloc[(page - 1) * page_size : page * page_size]
     rows: list[dict[str, Any]] = []

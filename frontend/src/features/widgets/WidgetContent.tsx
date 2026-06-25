@@ -3,6 +3,21 @@ import type { Data, Layout } from 'plotly.js';
 
 import type { CytoscapeElement } from '@/api/analytics';
 import { Plot } from '@/components/Plot';
+import {
+  DEFAULT_PAGE_SIZE,
+  TABLE_PAGE_SIZE_OPTIONS_STR,
+} from '@/lib/table';
+
+/**
+ * T49: общий конфиг пагинации для табличных виджетов дашборда.
+ * Селектор «20 / 50 / 100 / 500» строк, автоскрытие на одной странице.
+ */
+const TABLE_PAGINATION_BIG = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  showSizeChanger: true,
+  pageSizeOptions: TABLE_PAGE_SIZE_OPTIONS_STR,
+  hideOnSinglePage: true,
+} as const;
 import { ProcessGraph } from '@/components/ProcessGraph';
 import { formatDuration } from '@/lib/format';
 
@@ -133,14 +148,32 @@ interface ReworkRow {
 
 function ReworkTable({ data }: { data: { rows: ReworkRow[]; global_rework_pct: number } }) {
   const columns: TableColumnsType<ReworkRow> = [
-    { title: 'Операция', dataIndex: 'activity', key: 'activity' },
-    { title: 'Всего', dataIndex: 'total', key: 'total', width: 90 },
-    { title: 'Повторов', dataIndex: 'repeats', key: 'repeats', width: 100 },
+    {
+      title: 'Операция',
+      dataIndex: 'activity',
+      key: 'activity',
+      sorter: (a, b) => a.activity.localeCompare(b.activity, 'ru'),
+    },
+    {
+      title: 'Всего',
+      dataIndex: 'total',
+      key: 'total',
+      width: 90,
+      sorter: (a, b) => a.total - b.total,
+    },
+    {
+      title: 'Повторов',
+      dataIndex: 'repeats',
+      key: 'repeats',
+      width: 100,
+      sorter: (a, b) => a.repeats - b.repeats,
+    },
     {
       title: '% переделок',
       dataIndex: 'rework_pct',
       key: 'rework_pct',
       width: 120,
+      sorter: (a, b) => a.rework_pct - b.rework_pct,
       render: (value: number) => `${value.toFixed(1)}%`,
     },
   ];
@@ -154,7 +187,7 @@ function ReworkTable({ data }: { data: { rows: ReworkRow[]; global_rework_pct: n
         size="small"
         columns={columns}
         dataSource={data.rows}
-        pagination={{ pageSize: 8, hideOnSinglePage: true }}
+        pagination={TABLE_PAGINATION_BIG}
       />
     </div>
   );
@@ -170,14 +203,32 @@ interface ResourceRow {
 
 function ResourceTable({ data }: { data: { rows: ResourceRow[] } }) {
   const columns: TableColumnsType<ResourceRow> = [
-    { title: 'Ресурс', dataIndex: 'resource', key: 'resource' },
-    { title: 'Кейсов', dataIndex: 'n_cases', key: 'n_cases', width: 90 },
-    { title: 'Операций', dataIndex: 'n_events', key: 'n_events', width: 100 },
+    {
+      title: 'Ресурс',
+      dataIndex: 'resource',
+      key: 'resource',
+      sorter: (a, b) => a.resource.localeCompare(b.resource, 'ru'),
+    },
+    {
+      title: 'Кейсов',
+      dataIndex: 'n_cases',
+      key: 'n_cases',
+      width: 90,
+      sorter: (a, b) => a.n_cases - b.n_cases,
+    },
+    {
+      title: 'Операций',
+      dataIndex: 'n_events',
+      key: 'n_events',
+      width: 100,
+      sorter: (a, b) => a.n_events - b.n_events,
+    },
     {
       title: 'Ср. длительность',
       dataIndex: 'avg_own_duration_seconds',
       key: 'avg',
       width: 150,
+      sorter: (a, b) => a.avg_own_duration_seconds - b.avg_own_duration_seconds,
       render: (value: number) => formatDuration(value),
     },
     {
@@ -185,6 +236,7 @@ function ResourceTable({ data }: { data: { rows: ResourceRow[] } }) {
       dataIndex: 'n_unique_activities',
       key: 'n_unique_activities',
       width: 140,
+      sorter: (a, b) => a.n_unique_activities - b.n_unique_activities,
     },
   ];
   return (
@@ -193,7 +245,7 @@ function ResourceTable({ data }: { data: { rows: ResourceRow[] } }) {
       size="small"
       columns={columns}
       dataSource={data.rows}
-      pagination={{ pageSize: 8, hideOnSinglePage: true }}
+      pagination={TABLE_PAGINATION_BIG}
     />
   );
 }
@@ -222,14 +274,31 @@ function SlaTable({
   data: { rows: SlaRow[]; overall_compliance_pct: number | null };
 }) {
   const columns: TableColumnsType<SlaRow> = [
-    { title: 'Операция', dataIndex: 'activity', key: 'activity' },
-    { title: 'Роль', dataIndex: 'role', key: 'role' },
-    { title: 'Просрочено', dataIndex: 'overdue_count', key: 'overdue', width: 110 },
+    {
+      title: 'Операция',
+      dataIndex: 'activity',
+      key: 'activity',
+      sorter: (a, b) => a.activity.localeCompare(b.activity, 'ru'),
+    },
+    {
+      title: 'Роль',
+      dataIndex: 'role',
+      key: 'role',
+      sorter: (a, b) => a.role.localeCompare(b.role, 'ru'),
+    },
+    {
+      title: 'Просрочено',
+      dataIndex: 'overdue_count',
+      key: 'overdue',
+      width: 110,
+      sorter: (a, b) => a.overdue_count - b.overdue_count,
+    },
     {
       title: 'Соответствие',
       dataIndex: 'compliance_pct',
       key: 'compliance',
       width: 130,
+      sorter: (a, b) => (a.compliance_pct ?? -1) - (b.compliance_pct ?? -1),
       render: (value: number | null) => (value == null ? '—' : `${value.toFixed(1)}%`),
     },
     {
@@ -237,6 +306,7 @@ function SlaTable({
       dataIndex: 'status',
       key: 'status',
       width: 110,
+      sorter: (a, b) => a.status.localeCompare(b.status),
       render: (status: string) => (
         <Tag color={SLA_STATUS_COLOR[status] ?? 'default'}>{status}</Tag>
       ),
@@ -255,7 +325,7 @@ function SlaTable({
         size="small"
         columns={columns}
         dataSource={data.rows}
-        pagination={{ pageSize: 8, hideOnSinglePage: true }}
+        pagination={TABLE_PAGINATION_BIG}
       />
     </div>
   );
@@ -272,14 +342,22 @@ function TopPaths({ data }: { data: { variants: VariantRow[] } }) {
     {
       title: 'Маршрут',
       key: 'trace',
+      sorter: (a, b) => a.trace.length - b.trace.length,
       render: (_, row) => row.trace.join(' → '),
     },
-    { title: 'Кейсов', dataIndex: 'n_cases', key: 'n_cases', width: 90 },
+    {
+      title: 'Кейсов',
+      dataIndex: 'n_cases',
+      key: 'n_cases',
+      width: 90,
+      sorter: (a, b) => a.n_cases - b.n_cases,
+    },
     {
       title: 'Ср. длительность',
       dataIndex: 'avg_duration_seconds',
       key: 'avg',
       width: 150,
+      sorter: (a, b) => a.avg_duration_seconds - b.avg_duration_seconds,
       render: (value: number) => formatDuration(value),
     },
   ];
@@ -289,7 +367,7 @@ function TopPaths({ data }: { data: { variants: VariantRow[] } }) {
       size="small"
       columns={columns}
       dataSource={data.variants}
-      pagination={false}
+      pagination={TABLE_PAGINATION_BIG}
     />
   );
 }
@@ -434,6 +512,7 @@ function OperationsSummaryShort({
       dataIndex: 'activity',
       key: 'activity',
       width: '45%',
+      sorter: (a, b) => a.activity.localeCompare(b.activity, 'ru'),
       onCell: () => ({ style: { whiteSpace: 'normal', wordBreak: 'break-word' } }),
     },
     {
@@ -442,6 +521,7 @@ function OperationsSummaryShort({
       key: 'pct_cases',
       width: 90,
       align: 'right',
+      sorter: (a, b) => a.pct_cases - b.pct_cases,
       render: (value: number) => `${value.toFixed(1)}%`,
     },
     {
@@ -450,6 +530,7 @@ function OperationsSummaryShort({
       key: 'avg',
       width: 110,
       align: 'right',
+      sorter: (a, b) => a.avg_own_duration_seconds - b.avg_own_duration_seconds,
       render: (value: number) => formatDuration(value),
     },
     {
@@ -458,6 +539,7 @@ function OperationsSummaryShort({
       key: 'rework',
       width: 90,
       align: 'right',
+      sorter: (a, b) => a.rework_pct - b.rework_pct,
       render: (value: number) => `${value.toFixed(1)}%`,
     },
   ];
@@ -467,7 +549,7 @@ function OperationsSummaryShort({
       size="small"
       columns={columns}
       dataSource={data.rows}
-      pagination={{ pageSize: 12, hideOnSinglePage: true, size: 'small' }}
+      pagination={TABLE_PAGINATION_BIG}
     />
   );
 }

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Card, Empty, Table, Typography, type TableColumnsType } from 'antd';
+import { Empty, Spin, Table, Tabs, Typography, type TableColumnsType } from 'antd';
+import { useState } from 'react';
 
 import {
   getEventsPerCaseDistribution,
@@ -10,14 +11,17 @@ import {
 } from '@/api/analytics';
 import { getVirtualDataset } from '@/api/virtualDatasets';
 import { formatDateTime, formatDuration } from '@/lib/format';
+import {
+  DEFAULT_PAGE_SIZE,
+  TABLE_PAGE_SIZE_OPTIONS_STR,
+} from '@/lib/table';
 
 /**
- * T42: подвкладка «Стандартные метрики» (REQ §6.7).
- * Три таблицы предрассчитанных показателей датасета:
- *   1) Базовые показатели (cached_stats) — KPI уровня датасета;
- *   2) Метрики операций — per-activity статистика;
- *   3) Распределение событий в кейсе — гистограмма.
- * Все эндпоинты переиспользуются: новый только /events-per-case-distribution.
+ * T42/T49: подвкладка «Стандартные метрики» (REQ §6.7).
+ * Три вложенные подвкладки с предрассчитанными показателями:
+ *   • Показатели датасета — key/value список из cached_stats;
+ *   • Метрики операций — per-activity таблица с сортировкой и пагинацией;
+ *   • Распределение событий в кейсе — гистограмма.
  */
 export function StandardMetricsTab({
   projectId,
@@ -28,62 +32,90 @@ export function StandardMetricsTab({
   vdId: number;
   externalFilter?: EventFilter;
 }) {
+  const [active, setActive] = useState<'dataset' | 'operations' | 'distribution'>(
+    'dataset',
+  );
   const filterKey = JSON.stringify(externalFilter ?? {});
 
   const vdQuery = useQuery({
     queryKey: ['vd', vdId],
     queryFn: () => getVirtualDataset(projectId, vdId),
+    enabled: active === 'dataset',
   });
   const opsQuery = useQuery({
     queryKey: ['standard-operations', projectId, vdId, filterKey],
     queryFn: () => getOperations(projectId, vdId, { filters: externalFilter }),
+    enabled: active === 'operations',
   });
   const histQuery = useQuery({
     queryKey: ['events-per-case-distribution', projectId, vdId, filterKey],
     queryFn: () =>
       getEventsPerCaseDistribution(projectId, vdId, { filters: externalFilter }),
+    enabled: active === 'distribution',
   });
 
   const stats = (vdQuery.data?.cached_stats ?? {}) as Record<string, unknown>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Card size="small" title="Показатели датасета" loading={vdQuery.isLoading}>
-        {Object.keys(stats).length === 0 ? (
-          <Empty description="Метрики ещё не посчитаны" />
-        ) : (
-          <DatasetMetricsTable stats={stats} />
-        )}
-      </Card>
-
-      <Card size="small" title="Метрики операций" loading={opsQuery.isLoading}>
-        <Table<OperationSummaryRow>
-          rowKey="activity"
-          size="small"
-          dataSource={opsQuery.data?.items ?? []}
-          columns={OPERATION_COLUMNS}
-          pagination={{ pageSize: 20, hideOnSinglePage: true, showSizeChanger: false }}
-          scroll={{ x: true }}
-        />
-      </Card>
-
-      <Card
-        size="small"
-        title="Распределение событий в кейсе"
-        loading={histQuery.isLoading}
-      >
-        <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginTop: 0 }}>
-          Всего кейсов: {histQuery.data?.total_cases ?? '—'}
-        </Typography.Paragraph>
-        <Table<EventsPerCaseBin>
-          rowKey="events_in_case"
-          size="small"
-          dataSource={histQuery.data?.items ?? []}
-          columns={HISTOGRAM_COLUMNS}
-          pagination={{ pageSize: 20, hideOnSinglePage: true, showSizeChanger: false }}
-        />
-      </Card>
-    </div>
+    <Tabs
+      activeKey={active}
+      onChange={(key) => setActive(key as typeof active)}
+      type="card"
+      size="small"
+      destroyInactiveTabPane
+      items={[
+        {
+          key: 'dataset',
+          label: 'Показатели датасета',
+          children: vdQuery.isLoading ? (
+            <Spin />
+          ) : Object.keys(stats).length === 0 ? (
+            <Empty description="Метрики ещё не посчитаны" />
+          ) : (
+            <DatasetMetricsTable stats={stats} />
+          ),
+        },
+        {
+          key: 'operations',
+          label: 'Метрики операций',
+          children: (
+            <Table<OperationSummaryRow>
+              rowKey="activity"
+              size="small"
+              loading={opsQuery.isLoading}
+              dataSource={opsQuery.data?.items ?? []}
+              columns={OPERATION_COLUMNS}
+              pagination={{
+                defaultPageSize: DEFAULT_PAGE_SIZE,
+                showSizeChanger: true,
+                pageSizeOptions: TABLE_PAGE_SIZE_OPTIONS_STR,
+                hideOnSinglePage: true,
+              }}
+              scroll={{ x: true }}
+            />
+          ),
+        },
+        {
+          key: 'distribution',
+          label: 'Распределение событий в кейсе',
+          children: (
+            <>
+              <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
+                Всего кейсов: {histQuery.data?.total_cases ?? '—'}
+              </Typography.Paragraph>
+              <Table<EventsPerCaseBin>
+                rowKey="events_in_case"
+                size="small"
+                loading={histQuery.isLoading}
+                dataSource={histQuery.data?.items ?? []}
+                columns={HISTOGRAM_COLUMNS}
+                pagination={{ hideOnSinglePage: true, showSizeChanger: false }}
+              />
+            </>
+          ),
+        },
+      ]}
+    />
   );
 }
 
@@ -190,14 +222,32 @@ function DatasetMetricsTable({ stats }: { stats: Record<string, unknown> }) {
 /* ─── Таблица 2: метрики операций ─── */
 
 const OPERATION_COLUMNS: TableColumnsType<OperationSummaryRow> = [
-  { title: 'Операция', dataIndex: 'activity', key: 'activity' },
-  { title: 'Кейсов', dataIndex: 'n_cases', key: 'n_cases', width: 100 },
-  { title: 'Событий', dataIndex: 'n_events', key: 'n_events', width: 100 },
+  {
+    title: 'Операция',
+    dataIndex: 'activity',
+    key: 'activity',
+    sorter: (a, b) => a.activity.localeCompare(b.activity, 'ru'),
+  },
+  {
+    title: 'Кейсов',
+    dataIndex: 'n_cases',
+    key: 'n_cases',
+    width: 100,
+    sorter: (a, b) => a.n_cases - b.n_cases,
+  },
+  {
+    title: 'Событий',
+    dataIndex: 'n_events',
+    key: 'n_events',
+    width: 100,
+    sorter: (a, b) => a.n_events - b.n_events,
+  },
   {
     title: 'Ср. длительность',
     dataIndex: 'avg_own_duration_seconds',
     key: 'avg_own_duration_seconds',
     width: 160,
+    sorter: (a, b) => a.avg_own_duration_seconds - b.avg_own_duration_seconds,
     render: (v: number) => formatDuration(v),
   },
   {
@@ -205,6 +255,7 @@ const OPERATION_COLUMNS: TableColumnsType<OperationSummaryRow> = [
     dataIndex: 'median_own_duration_seconds',
     key: 'median_own_duration_seconds',
     width: 160,
+    sorter: (a, b) => a.median_own_duration_seconds - b.median_own_duration_seconds,
     render: (v: number) => formatDuration(v),
   },
   {
@@ -212,6 +263,7 @@ const OPERATION_COLUMNS: TableColumnsType<OperationSummaryRow> = [
     dataIndex: 'avg_share_pct',
     key: 'avg_share_pct',
     width: 130,
+    sorter: (a, b) => a.avg_share_pct - b.avg_share_pct,
     render: (v: number) => `${v.toFixed(2)}%`,
   },
 ];
@@ -224,6 +276,12 @@ const HISTOGRAM_COLUMNS: TableColumnsType<EventsPerCaseBin> = [
     dataIndex: 'events_in_case',
     key: 'events_in_case',
     width: 220,
+    sorter: (a, b) => a.events_in_case - b.events_in_case,
   },
-  { title: 'Число таких кейсов', dataIndex: 'n_cases', key: 'n_cases' },
+  {
+    title: 'Число таких кейсов',
+    dataIndex: 'n_cases',
+    key: 'n_cases',
+    sorter: (a, b) => a.n_cases - b.n_cases,
+  },
 ];

@@ -275,7 +275,13 @@ export async function getFilterOptions(
 export async function listCases(
   projectId: number,
   vdId: number,
-  params: { page: number; page_size: number; filters?: EventFilter }
+  params: {
+    page: number;
+    page_size: number;
+    filters?: EventFilter;
+    sort_by?: string;
+    sort_order?: 'asc' | 'desc';
+  }
 ): Promise<CaseListResponse> {
   const { filters, ...rest } = params;
   const { data } = await apiClient.get<CaseListResponse>(
@@ -301,7 +307,13 @@ export async function getEventsPerCaseDistribution(
 export async function listEvents(
   projectId: number,
   vdId: number,
-  params: { page: number; page_size: number; filters?: EventFilter }
+  params: {
+    page: number;
+    page_size: number;
+    filters?: EventFilter;
+    sort_by?: string;
+    sort_order?: 'asc' | 'desc';
+  }
 ): Promise<EventListResponse> {
   const { filters, ...rest } = params;
   const { data } = await apiClient.get<EventListResponse>(
