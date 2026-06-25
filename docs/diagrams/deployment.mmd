@@ -3,7 +3,7 @@
 %% Рендер: https://mermaid.live или VS Code (Markdown Preview Mermaid Support).
 flowchart LR
     User["👤 Пользователи<br/>(аналитики, администратор)<br/>браузер"]
-    AD[("🔐 Корпоративный<br/>AD / LDAP")]
+    AD[("🔐 Корпоративный AD / LDAP<br/>(опционально, на будущее)")]
 
     subgraph LAN["🏢 Корпоративная ЛВС"]
         direction LR
@@ -14,12 +14,14 @@ flowchart LR
             NGINX["🌐 Reverse proxy<br/>nginx / IIS<br/>:80, :443"]
 
             FE["⚛️ Frontend SPA<br/>React + Vite (статика)<br/>frontend/dist"]
-            API["⚙️ Backend API<br/>FastAPI + uvicorn<br/>:8000 · /api/v1"]
+            API["⚙️ Backend API<br/>FastAPI + uvicorn<br/>:8000 · /api/v1<br/>аутентификация: локальная (JWT)"]
             WRK["🔧 Celery worker<br/>фоновые задачи:<br/>загрузка XLSX,<br/>расчёт KPI и вариантов"]
 
-            PG[("🐘 PostgreSQL 15+<br/>:5432<br/>схемы: auth · core · events")]
-            REDIS[("🟥 Redis 7+<br/>:6379<br/>db0 кэш · db1 broker · db2 results")]
+            PG[("🐘 PostgreSQL 15+<br/>:5432 (loopback)<br/>схемы: auth · core · events")]
+            REDIS[("🟥 Redis 7+<br/>:6379 (loopback)<br/>db0 кэш · db1 broker · db2 results")]
             FS[("💾 Файловое хранилище<br/>storage/ · backups/ · logs/")]
+
+            NOTE["🔒 Порты 5432 и 6379 — только loopback (127.0.0.1).<br/>В межсетевые экраны НЕ выносятся.<br/>Снаружи открыты лишь 80/443 (от пользователей)."]
         end
     end
 
@@ -30,7 +32,7 @@ flowchart LR
     API -->|"asyncpg :5432"| PG
     API -->|"db0 кэш · db1 enqueue"| REDIS
     API -->|"чтение/запись XLSX"| FS
-    API <-->|"LDAP / LDAPS"| AD
+    API -.->|"опц.: LDAP / LDAPS"| AD
 
     REDIS -->|"db1 задачи"| WRK
     WRK -->|"db2 результаты"| REDIS
@@ -38,10 +40,14 @@ flowchart LR
     WRK -->|"чтение XLSX"| FS
 
     classDef external fill:#e6f4ff,stroke:#1677ff,stroke-width:1px,color:#000
+    classDef optional fill:#f5f5f5,stroke:#8c8c8c,stroke-width:1px,stroke-dasharray:5 4,color:#555
     classDef server fill:#fffbe6,stroke:#d48806,stroke-width:1px,color:#000
     classDef data fill:#f6ffed,stroke:#389e0d,stroke-width:1px,color:#000
     classDef proxy fill:#fff1f0,stroke:#cf1322,stroke-width:1px,color:#000
-    class User,AD external
+    classDef note fill:#fffbe6,stroke:#faad14,stroke-width:1px,color:#614700
+    class User external
+    class AD optional
     class FE,API,WRK server
     class PG,REDIS,FS data
     class NGINX proxy
+    class NOTE note
