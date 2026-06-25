@@ -31,7 +31,11 @@ import type { GraphHighlight } from '@/components/ProcessGraph';
 import { FilterPanel } from '@/features/analytics/FilterPanel';
 import { formatDuration } from '@/lib/format';
 import { getErrorMessage, notifyError } from '@/lib/notify';
-import { DEFAULT_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS_STR } from '@/lib/table';
+import {
+  DEFAULT_PAGE_SIZE,
+  TABLE_PAGE_SIZE_OPTIONS_STR,
+  TWO_STATE_SORT_DIRECTIONS,
+} from '@/lib/table';
 
 const START = '__start__';
 const END = '__end__';
@@ -441,6 +445,7 @@ export function ProcessGraphTab({
                 dataSource={operations}
                 columns={operationColumns}
                 loading={operationsQuery.isLoading}
+                sortDirections={TWO_STATE_SORT_DIRECTIONS}
                 pagination={{
                   defaultPageSize: DEFAULT_PAGE_SIZE,
                   showSizeChanger: true,

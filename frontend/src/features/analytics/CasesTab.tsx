@@ -26,6 +26,7 @@ import { formatDateTime, formatDuration } from '@/lib/format';
 import {
   DEFAULT_PAGE_SIZE,
   TABLE_PAGE_SIZE_OPTIONS_STR,
+  TWO_STATE_SORT_DIRECTIONS,
 } from '@/lib/table';
 
 /** Сопоставление колонок AntD ↔ полей сортировки на бэке (T49). */
@@ -153,6 +154,7 @@ export function CasesTab({
         columns={columns}
         dataSource={data?.items ?? []}
         onChange={handleTableChange}
+        sortDirections={TWO_STATE_SORT_DIRECTIONS}
         pagination={{
           current: page,
           pageSize,

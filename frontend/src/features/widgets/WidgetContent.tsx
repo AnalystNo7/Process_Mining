@@ -3,9 +3,12 @@ import type { Data, Layout } from 'plotly.js';
 
 import type { CytoscapeElement } from '@/api/analytics';
 import { Plot } from '@/components/Plot';
+import { ProcessGraph } from '@/components/ProcessGraph';
+import { formatDuration } from '@/lib/format';
 import {
   DEFAULT_PAGE_SIZE,
   TABLE_PAGE_SIZE_OPTIONS_STR,
+  TWO_STATE_SORT_DIRECTIONS,
 } from '@/lib/table';
 
 /**
@@ -18,8 +21,6 @@ const TABLE_PAGINATION_BIG = {
   pageSizeOptions: TABLE_PAGE_SIZE_OPTIONS_STR,
   hideOnSinglePage: true,
 } as const;
-import { ProcessGraph } from '@/components/ProcessGraph';
-import { formatDuration } from '@/lib/format';
 
 interface XYPoint {
   x: string;
@@ -187,7 +188,8 @@ function ReworkTable({ data }: { data: { rows: ReworkRow[]; global_rework_pct: n
         size="small"
         columns={columns}
         dataSource={data.rows}
-        pagination={TABLE_PAGINATION_BIG}
+        sortDirections={TWO_STATE_SORT_DIRECTIONS}
+      pagination={TABLE_PAGINATION_BIG}
       />
     </div>
   );
@@ -245,6 +247,7 @@ function ResourceTable({ data }: { data: { rows: ResourceRow[] } }) {
       size="small"
       columns={columns}
       dataSource={data.rows}
+      sortDirections={TWO_STATE_SORT_DIRECTIONS}
       pagination={TABLE_PAGINATION_BIG}
     />
   );
@@ -325,7 +328,8 @@ function SlaTable({
         size="small"
         columns={columns}
         dataSource={data.rows}
-        pagination={TABLE_PAGINATION_BIG}
+        sortDirections={TWO_STATE_SORT_DIRECTIONS}
+      pagination={TABLE_PAGINATION_BIG}
       />
     </div>
   );
@@ -367,6 +371,7 @@ function TopPaths({ data }: { data: { variants: VariantRow[] } }) {
       size="small"
       columns={columns}
       dataSource={data.variants}
+      sortDirections={TWO_STATE_SORT_DIRECTIONS}
       pagination={TABLE_PAGINATION_BIG}
     />
   );
@@ -549,6 +554,7 @@ function OperationsSummaryShort({
       size="small"
       columns={columns}
       dataSource={data.rows}
+      sortDirections={TWO_STATE_SORT_DIRECTIONS}
       pagination={TABLE_PAGINATION_BIG}
     />
   );

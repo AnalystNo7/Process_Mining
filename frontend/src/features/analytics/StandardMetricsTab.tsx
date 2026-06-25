@@ -14,6 +14,7 @@ import { formatDateTime, formatDuration } from '@/lib/format';
 import {
   DEFAULT_PAGE_SIZE,
   TABLE_PAGE_SIZE_OPTIONS_STR,
+  TWO_STATE_SORT_DIRECTIONS,
 } from '@/lib/table';
 
 /**
@@ -85,6 +86,7 @@ export function StandardMetricsTab({
               loading={opsQuery.isLoading}
               dataSource={opsQuery.data?.items ?? []}
               columns={OPERATION_COLUMNS}
+              sortDirections={TWO_STATE_SORT_DIRECTIONS}
               pagination={{
                 defaultPageSize: DEFAULT_PAGE_SIZE,
                 showSizeChanger: true,
@@ -109,6 +111,7 @@ export function StandardMetricsTab({
                 loading={histQuery.isLoading}
                 dataSource={histQuery.data?.items ?? []}
                 columns={HISTOGRAM_COLUMNS}
+                sortDirections={TWO_STATE_SORT_DIRECTIONS}
                 pagination={{ hideOnSinglePage: true, showSizeChanger: false }}
               />
             </>

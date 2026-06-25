@@ -8,7 +8,11 @@ import { useState } from 'react';
 
 import { listEvents, type EventFilter, type RawEventRow } from '@/api/analytics';
 import { formatDateTime, formatDuration } from '@/lib/format';
-import { DEFAULT_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS_STR } from '@/lib/table';
+import {
+  DEFAULT_PAGE_SIZE,
+  TABLE_PAGE_SIZE_OPTIONS_STR,
+  TWO_STATE_SORT_DIRECTIONS,
+} from '@/lib/table';
 
 /** T49: ключ колонки AntD → поле сортировки на бэке. */
 const SORT_COLUMN_TO_FIELD: Record<string, string> = {
@@ -127,6 +131,7 @@ export function DatasetTab({
       dataSource={data?.items ?? []}
       size="small"
       onChange={handleTableChange}
+      sortDirections={TWO_STATE_SORT_DIRECTIONS}
       pagination={{
         current: page,
         pageSize,
