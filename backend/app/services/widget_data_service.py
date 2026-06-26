@@ -8,7 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BusinessRuleError, EntityNotFoundError
 from app.db.models.dashboards import Dashboard, DashboardWidget
 from app.db.models.datasets import NamedSlice, VirtualDataset
-from app.domain.mining.duration import compute_operation_durations_boxplot
+from app.domain.mining.duration import (
+    compute_case_duration_cdf,
+    compute_duration_bottleneck_heatmap,
+    compute_operation_durations_boxplot,
+    compute_sojourn_vs_own,
+)
 from app.domain.mining.dynamics import (
     compute_case_flow,
     compute_events_per_case_histogram,
@@ -399,6 +404,37 @@ async def _operation_durations_boxplot(
     )
 
 
+async def _case_duration_cdf(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    sla_hours = config.get("sla_target_hours", 24)
+    sla_seconds = float(sla_hours) * 3600 if sla_hours else None
+    return compute_case_duration_cdf(df, sla_seconds)
+
+
+async def _duration_bottleneck_heatmap(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    column = analytics_service.activity_column(config.get("activity_level", "raw"))
+    dimension = config.get("dimension", "department")
+    if dimension not in ("department", "resource"):
+        dimension = "department"
+    return compute_duration_bottleneck_heatmap(df, column, dimension)
+
+
+async def _sojourn_vs_own(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    column = analytics_service.activity_column(config.get("activity_level", "raw"))
+    return compute_sojourn_vs_own(df, column, int(config.get("limit", 15)))
+
+
 async def _sla_compliance_table(
     db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
     event_filter: EventFilter | None,
@@ -428,6 +464,9 @@ _HANDLERS = {
     "top_paths_graph": _top_paths_graph,
     "sla_compliance_table": _sla_compliance_table,
     "operation_durations_boxplot": _operation_durations_boxplot,
+    "case_duration_cdf": _case_duration_cdf,
+    "duration_bottleneck_heatmap": _duration_bottleneck_heatmap,
+    "sojourn_vs_own": _sojourn_vs_own,
 }
 
 

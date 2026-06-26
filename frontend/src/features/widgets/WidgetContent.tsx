@@ -610,6 +610,178 @@ function OperationDurationsBoxplot({
   );
 }
 
+interface CdfPoint {
+  x: number;
+  y: number;
+}
+
+function CaseDurationCdf({
+  data,
+}: {
+  data: {
+    points: CdfPoint[];
+    sla_target_seconds: number | null;
+    pct_within_sla: number | null;
+    x_label: string;
+    y_label: string;
+  };
+}) {
+  if (!data.points || data.points.length === 0) {
+    return <Empty description="Нет данных для построения" />;
+  }
+  const trace = {
+    x: data.points.map((p) => p.x),
+    y: data.points.map((p) => p.y),
+    type: 'scatter',
+    mode: 'lines',
+    line: { color: '#1677ff', shape: 'hv' },
+    hovertemplate: '%{y:.1f}% ≤ %{x:.0f} сек<extra></extra>',
+  };
+  const layout: Partial<Layout> = {
+    ...BASE_LAYOUT,
+    yaxis: { title: { text: data.y_label }, range: [0, 100] },
+    xaxis: { title: { text: data.x_label } },
+  };
+  // Вертикальная линия SLA + подпись «X% уложились».
+  if (data.sla_target_seconds != null) {
+    layout.shapes = [
+      {
+        type: 'line',
+        x0: data.sla_target_seconds,
+        x1: data.sla_target_seconds,
+        y0: 0,
+        y1: 100,
+        line: { color: '#cf1322', width: 2, dash: 'dash' },
+      },
+    ];
+    layout.annotations = [
+      {
+        x: data.sla_target_seconds,
+        y: 100,
+        yanchor: 'bottom',
+        showarrow: false,
+        text:
+          data.pct_within_sla != null
+            ? `SLA ${formatDuration(data.sla_target_seconds)} · ${data.pct_within_sla.toFixed(0)}% уложились`
+            : `SLA ${formatDuration(data.sla_target_seconds)}`,
+        font: { color: '#cf1322' },
+      },
+    ];
+  }
+  return (
+    <PlotBox>
+      <Plot
+        data={[trace] as Data[]}
+        layout={layout}
+        style={PLOT_STYLE}
+        config={PLOT_CONFIG}
+        useResizeHandler
+      />
+    </PlotBox>
+  );
+}
+
+function DurationBottleneckHeatmap({
+  data,
+}: {
+  data: {
+    cells: { x: string; y: string; value: number }[];
+    x_label: string;
+    y_label: string;
+  };
+}) {
+  if (!data.cells || data.cells.length === 0) {
+    return <Empty description="Нет данных для построения" />;
+  }
+  const xs = Array.from(new Set(data.cells.map((c) => c.x))).sort();
+  const ys = Array.from(new Set(data.cells.map((c) => c.y))).sort();
+  const lookup = new Map(data.cells.map((c) => [`${c.x}|${c.y}`, c.value]));
+  const z = ys.map((y) => xs.map((x) => lookup.get(`${x}|${y}`) ?? null));
+  // Текст с человекочитаемой длительностью в подсказке.
+  const text = ys.map((y) =>
+    xs.map((x) => {
+      const v = lookup.get(`${x}|${y}`);
+      return v == null ? '' : formatDuration(v);
+    }),
+  );
+  return (
+    <PlotBox>
+      <Plot
+        data={
+          [
+            {
+              type: 'heatmap',
+              x: xs,
+              y: ys,
+              z,
+              text,
+              colorscale: 'Reds',
+              hovertemplate: '%{y} · %{x}<br>медиана: %{text}<extra></extra>',
+              colorbar: { title: { text: 'сек' } },
+            },
+          ] as unknown as Data[]
+        }
+        layout={{
+          ...BASE_LAYOUT,
+          margin: { l: 120, r: 16, t: 16, b: 96 },
+          xaxis: { title: { text: data.x_label }, tickangle: -25, automargin: true },
+          yaxis: { title: { text: data.y_label }, automargin: true },
+        }}
+        style={PLOT_STYLE}
+        config={PLOT_CONFIG}
+        useResizeHandler
+      />
+    </PlotBox>
+  );
+}
+
+interface SojournRow {
+  activity: string;
+  work_seconds: number;
+  wait_seconds: number;
+  n: number;
+}
+
+function SojournVsOwn({ data }: { data: { rows: SojournRow[] } }) {
+  if (!data.rows || data.rows.length === 0) {
+    return <Empty description="Нет данных для построения" />;
+  }
+  const activities = data.rows.map((r) => r.activity);
+  const work = {
+    x: activities,
+    y: data.rows.map((r) => r.work_seconds),
+    name: 'Работа',
+    type: 'bar',
+    marker: { color: '#1677ff' },
+  };
+  const wait = {
+    x: activities,
+    y: data.rows.map((r) => r.wait_seconds),
+    name: 'Ожидание',
+    type: 'bar',
+    marker: { color: '#fa8c16' },
+  };
+  return (
+    <PlotBox>
+      <Plot
+        data={[work, wait] as Data[]}
+        layout={{
+          ...BASE_LAYOUT,
+          margin: { l: 64, r: 16, t: 16, b: 96 },
+          barmode: 'stack',
+          showlegend: true,
+          legend: { orientation: 'h' },
+          yaxis: { title: { text: 'Длительность (сек)' } },
+          xaxis: { tickangle: -25, automargin: true },
+        }}
+        style={PLOT_STYLE}
+        config={PLOT_CONFIG}
+        useResizeHandler
+      />
+    </PlotBox>
+  );
+}
+
 export function WidgetContent({
   type,
   data,
@@ -648,6 +820,12 @@ export function WidgetContent({
       return <TopPaths data={data as never} />;
     case 'operation_durations_boxplot':
       return <OperationDurationsBoxplot data={data as never} />;
+    case 'case_duration_cdf':
+      return <CaseDurationCdf data={data as never} />;
+    case 'duration_bottleneck_heatmap':
+      return <DurationBottleneckHeatmap data={data as never} />;
+    case 'sojourn_vs_own':
+      return <SojournVsOwn data={data as never} />;
     case 'process_graph': {
       const graph = data as { nodes: CytoscapeElement[]; edges: CytoscapeElement[] };
       return graph.nodes.length > 0 ? (

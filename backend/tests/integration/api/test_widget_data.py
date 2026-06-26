@@ -299,6 +299,63 @@ async def test_operation_durations_boxplot_widget_data(
         assert trace["y"], "y не должно быть пустым"
 
 
+async def test_case_duration_cdf_widget_data(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    """Комбо: дефолтный CDF на process.duration отдаёт точки кривой и % в SLA."""
+    _, widgets = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    cdf = next(w for w in widgets if w["widget_type"] == "case_duration_cdf")
+    resp = await client.get(
+        f"/api/v1/widgets/{cdf['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["points"], "points не должны быть пустыми"
+    assert data["points"][-1]["y"] == 100.0
+    # _xlsx(): кейс длится с 9:i по 10:i — около часа; цель SLA 24ч → 100%.
+    assert data["sla_target_seconds"] == 24 * 3600
+    assert data["pct_within_sla"] == 100.0
+
+
+async def test_duration_bottleneck_heatmap_widget_data(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    _, widgets = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    heatmap = next(
+        w for w in widgets if w["widget_type"] == "duration_bottleneck_heatmap"
+    )
+    resp = await client.get(
+        f"/api/v1/widgets/{heatmap['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["cells"], "cells не должны быть пустыми"
+    xs = {c["x"] for c in data["cells"]}
+    assert xs == {"Старт", "Согласование", "Конец"}
+    assert data["y_label"] == "Департамент"
+
+
+async def test_sojourn_vs_own_widget_data(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    _, widgets = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    sojourn = next(w for w in widgets if w["widget_type"] == "sojourn_vs_own")
+    resp = await client.get(
+        f"/api/v1/widgets/{sojourn['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["rows"], "rows не должны быть пустыми"
+    first = data["rows"][0]
+    assert {"activity", "work_seconds", "wait_seconds", "n"} <= set(first)
+
+
 async def test_unsupported_widget_returns_422(
     client, analyst_user, db_session, tmp_path
 ) -> None:

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Form, Input, Modal, Select } from 'antd';
+import { Form, Input, InputNumber, Modal, Select } from 'antd';
 
 import { addWidget, type WidgetCreatePayload } from '@/api/dashboards';
 import { getErrorMessage, notifyError, notifySuccess } from '@/lib/notify';
@@ -12,6 +12,8 @@ interface AddWidgetFormValues {
   metric?: string;
   data_source?: string;
   y_axis?: string;
+  dimension?: string;
+  sla_target_hours?: number;
 }
 
 const WIDE_TYPES = new Set([
@@ -21,7 +23,15 @@ const WIDE_TYPES = new Set([
   'top_paths_graph',
   'process_graph',
   'operation_durations_boxplot',
+  'case_duration_cdf',
+  'duration_bottleneck_heatmap',
+  'sojourn_vs_own',
 ]);
+
+const HEATMAP_DIMENSIONS = [
+  { value: 'department', label: 'Департамент' },
+  { value: 'resource', label: 'Исполнитель' },
+];
 
 function buildConfig(values: AddWidgetFormValues): Record<string, unknown> {
   if (values.widget_type === 'kpi_card') {
@@ -33,6 +43,12 @@ function buildConfig(values: AddWidgetFormValues): Record<string, unknown> {
   }
   if (values.widget_type === 'heatmap') {
     return { y_axis: values.y_axis };
+  }
+  if (values.widget_type === 'duration_bottleneck_heatmap') {
+    return { dimension: values.dimension ?? 'department', activity_level: 'raw' };
+  }
+  if (values.widget_type === 'case_duration_cdf') {
+    return { sla_target_hours: values.sla_target_hours ?? 24 };
   }
   return {};
 }
@@ -126,6 +142,16 @@ export function AddWidgetModal({
             rules={[{ required: true, message: 'Выберите ось' }]}
           >
             <Select options={HEATMAP_AXES} />
+          </Form.Item>
+        )}
+        {widgetType === 'duration_bottleneck_heatmap' && (
+          <Form.Item name="dimension" label="Разрез" initialValue="department">
+            <Select options={HEATMAP_DIMENSIONS} />
+          </Form.Item>
+        )}
+        {widgetType === 'case_duration_cdf' && (
+          <Form.Item name="sla_target_hours" label="Цель SLA, часов" initialValue={24}>
+            <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
         )}
       </Form>

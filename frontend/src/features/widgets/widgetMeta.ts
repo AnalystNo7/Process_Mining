@@ -24,6 +24,12 @@ export const WIDGET_TYPES: WidgetTypeOption[] = [
     value: 'operation_durations_boxplot',
     label: 'Длительность операций (ящик с усами)',
   },
+  { value: 'case_duration_cdf', label: 'Кривая длительности кейсов (SLA)' },
+  {
+    value: 'duration_bottleneck_heatmap',
+    label: 'Узкие места: длительность по операциям',
+  },
+  { value: 'sojourn_vs_own', label: 'Работа и ожидание по операциям' },
 ];
 
 export const WIDGET_TYPE_LABEL: Record<string, string> = Object.fromEntries(

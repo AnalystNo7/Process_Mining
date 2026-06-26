@@ -99,3 +99,140 @@ def compute_operation_durations_boxplot(
             }
         )
     return {"traces": traces}
+
+
+def compute_case_duration_cdf(
+    df: pd.DataFrame, sla_target_seconds: float | None = None
+) -> dict[str, Any]:
+    """Комбо-длительность №1: кривая накопления (CDF / Service Level Curve).
+
+    Возвращает точки «X% кейсов завершились за ≤ N секунд». Для каждого кейса
+    берётся полная длительность (compute_case_duration). Точки сортируются по
+    возрастанию длительности, y = доля кейсов ≤ текущей (0..100).
+
+    Если кейсов больше 500 — точки прорежаются до ~200 равномерных квантилей
+    (крайние сохраняются), чтобы не раздувать JSON. Это прорежение визуальной
+    кривой, статистики (перцентили, % в SLA) считаются по полному набору.
+
+    sla_target_seconds: если задан — добавляется pct_within_sla (доля кейсов,
+    уложившихся в норматив). Пустой df → points: [].
+    """
+    empty: dict[str, Any] = {
+        "points": [],
+        "percentiles": None,
+        "sla_target_seconds": sla_target_seconds,
+        "pct_within_sla": None,
+        "x_label": "Длительность (сек)",
+        "y_label": "% кейсов",
+    }
+    if df.empty:
+        return empty
+
+    cases = compute_case_duration(df)
+    durations = np.sort(cases["duration_seconds"].to_numpy(dtype=float))
+    n = durations.size
+    if n == 0:
+        return empty
+
+    cum_pct = (np.arange(1, n + 1) / n) * 100.0
+
+    # Прорежение для больших датасетов: ~200 равномерных индексов + крайние.
+    if n > 500:
+        idx = np.unique(
+            np.concatenate(
+                [[0], np.linspace(0, n - 1, 200).astype(int), [n - 1]]
+            )
+        )
+    else:
+        idx = np.arange(n)
+
+    points = [
+        {"x": float(durations[i]), "y": float(cum_pct[i])} for i in idx
+    ]
+    percentiles = {
+        "p50": float(np.percentile(durations, 50)),
+        "p90": float(np.percentile(durations, 90)),
+        "p95": float(np.percentile(durations, 95)),
+    }
+    pct_within_sla: float | None = None
+    if sla_target_seconds is not None:
+        pct_within_sla = float((durations <= sla_target_seconds).mean() * 100.0)
+
+    return {
+        "points": points,
+        "percentiles": percentiles,
+        "sla_target_seconds": sla_target_seconds,
+        "pct_within_sla": pct_within_sla,
+        "x_label": "Длительность (сек)",
+        "y_label": "% кейсов",
+    }
+
+
+def compute_duration_bottleneck_heatmap(
+    df: pd.DataFrame, activity_col: str = "activity", dimension_col: str = "department"
+) -> dict[str, Any]:
+    """Комбо-длительность №2: теплокарта узких мест.
+
+    Матрица операция × разрез (департамент/исполнитель); значение ячейки —
+    МЕДИАНА собственной длительности операции (own_duration_sec) в этом разрезе.
+    Формат cells совпадает с обычным виджетом heatmap, чтобы переиспользовать
+    отрисовку. Пустой df / нет нужных колонок → cells: [].
+    """
+    x_label = "Операция"
+    y_label = "Департамент" if dimension_col == "department" else "Исполнитель"
+    needed = {activity_col, dimension_col, "own_duration_sec"}
+    if df.empty or not needed.issubset(df.columns):
+        return {"cells": [], "x_label": x_label, "y_label": y_label}
+
+    grouped = (
+        df[[activity_col, dimension_col, "own_duration_sec"]]
+        .dropna(subset=[activity_col, dimension_col])
+        .groupby([activity_col, dimension_col])["own_duration_sec"]
+        .median()
+    )
+    cells = [
+        {"x": str(activity), "y": str(dim), "value": float(median_sec)}
+        for (activity, dim), median_sec in grouped.items()
+    ]
+    return {"cells": cells, "x_label": x_label, "y_label": y_label}
+
+
+def compute_sojourn_vs_own(
+    df: pd.DataFrame, activity_col: str = "activity", limit: int = 15
+) -> dict[str, Any]:
+    """Комбо-длительность №3: работа vs ожидание по операциям.
+
+    На каждую операцию: «работа» = медиана own_duration_sec; «ожидание» =
+    медиана max(sojourn − own, 0), где sojourn — длительность с учётом простоя
+    между событиями (compute_sojourn_time). Топ-`limit` операций по частоте.
+    Пустой df → rows: [].
+    """
+    if df.empty or "own_duration_sec" not in df.columns:
+        return {"rows": []}
+
+    enriched = compute_sojourn_time(df)
+    enriched = enriched.dropna(subset=[activity_col])
+    if enriched.empty:
+        return {"rows": []}
+
+    own = enriched["own_duration_sec"].astype(float)
+    wait = (enriched["sojourn_seconds"].astype(float) - own).clip(lower=0)
+    work_df = pd.DataFrame(
+        {activity_col: enriched[activity_col].to_numpy(), "own": own, "wait": wait}
+    )
+
+    counts = (
+        work_df.groupby(activity_col).size().sort_values(ascending=False).head(limit)
+    )
+    rows: list[dict[str, Any]] = []
+    for activity in counts.index:
+        sub = work_df[work_df[activity_col] == activity]
+        rows.append(
+            {
+                "activity": str(activity),
+                "work_seconds": float(sub["own"].median()),
+                "wait_seconds": float(sub["wait"].median()),
+                "n": int(len(sub)),
+            }
+        )
+    return {"rows": rows}
