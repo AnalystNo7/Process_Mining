@@ -20,6 +20,10 @@ export const WIDGET_TYPES: WidgetTypeOption[] = [
   { value: 'sla_compliance_table', label: 'Соблюдение SLA' },
   { value: 'top_paths_graph', label: 'Топ маршрутов' },
   { value: 'process_graph', label: 'Граф процесса' },
+  {
+    value: 'operation_durations_boxplot',
+    label: 'Длительность операций (ящик с усами)',
+  },
 ];
 
 export const WIDGET_TYPE_LABEL: Record<string, string> = Object.fromEntries(

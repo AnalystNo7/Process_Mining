@@ -100,17 +100,30 @@ def test_overview_layout_matches_sketch() -> None:
 
 
 def test_process_subtabs_have_default_widgets() -> None:
-    """T47: дефолтные виджеты остались только на process.rework и process.distribution.
+    """T47/T45: дефолтные виджеты на process.rework, process.distribution и
+    process.duration (boxplot длительности операций, добавлен в T45).
     На process.process рендерится богатый ProcessGraphTab (embedded) на фронте —
-    виджет в БД ему не нужен. process.duration и process.paths остаются пустыми
-    (пользователь добавляет вручную). """
-    expected_tabs = {"process.rework", "process.distribution"}
+    виджет в БД ему не нужен. process.paths остаётся пустым."""
+    expected_tabs = {"process.rework", "process.distribution", "process.duration"}
     covered = {w["tab"] for w in _PROCESS_WIDGETS}
     assert covered == expected_tabs, (
-        f"T47: ожидаем только rework и distribution, получили {covered}"
+        f"T45/T47: ожидаем rework, distribution и duration; получили {covered}"
     )
 
 
+def test_process_duration_has_boxplot() -> None:
+    """T45: на process.duration лежит виджет «ящик с усами» с дефолтом
+    limit=15 и activity_level='raw'."""
+    [boxplot] = [
+        w for w in _PROCESS_WIDGETS if w["tab"] == "process.duration"
+    ]
+    assert boxplot["widget_type"] == "operation_durations_boxplot"
+    assert boxplot["config"]["limit"] == 15
+    assert boxplot["config"]["activity_level"] == "raw"
+    assert boxplot["grid_width"] == 12
+
+
 def test_default_widgets_count() -> None:
-    """T47: 13 overview + 2 process + 1 details = 16 виджетов."""
-    assert len(_DEFAULT_WIDGETS) == 16
+    """T45: 13 overview + 3 process (rework, distribution, duration-boxplot)
+    + 1 details = 17 виджетов."""
+    assert len(_DEFAULT_WIDGETS) == 17

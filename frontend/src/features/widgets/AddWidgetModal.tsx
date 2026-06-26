@@ -20,6 +20,7 @@ const WIDE_TYPES = new Set([
   'sla_compliance_table',
   'top_paths_graph',
   'process_graph',
+  'operation_durations_boxplot',
 ]);
 
 function buildConfig(values: AddWidgetFormValues): Record<string, unknown> {

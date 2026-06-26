@@ -560,6 +560,56 @@ function OperationsSummaryShort({
   );
 }
 
+interface BoxplotTrace {
+  name: string;
+  y: number[];
+  n: number;
+  q1: number;
+  median: number;
+  q3: number;
+  mean: number;
+  min: number;
+  max: number;
+}
+
+function OperationDurationsBoxplot({
+  data,
+}: {
+  data: { traces: BoxplotTrace[] };
+}) {
+  if (!data.traces || data.traces.length === 0) {
+    return <Empty description="Нет данных для построения" />;
+  }
+  // T45: один Plotly box-trace на операцию. boxmean: true рисует пунктирную
+  // линию среднего поверх медианы — позволяет видеть скос распределения.
+  const traces = data.traces.map((tr) => ({
+    type: 'box',
+    name: tr.name,
+    y: tr.y,
+    boxmean: true,
+    marker: { color: '#1677ff' },
+    line: { color: '#1677ff' },
+  }));
+  const layout: Partial<Layout> = {
+    ...BASE_LAYOUT,
+    margin: { l: 64, r: 16, t: 16, b: 96 },
+    showlegend: false,
+    yaxis: { title: { text: 'Длительность (сек)' } },
+    xaxis: { tickangle: -25, automargin: true },
+  };
+  return (
+    <PlotBox>
+      <Plot
+        data={traces as Data[]}
+        layout={layout}
+        style={PLOT_STYLE}
+        config={PLOT_CONFIG}
+        useResizeHandler
+      />
+    </PlotBox>
+  );
+}
+
 export function WidgetContent({
   type,
   data,
@@ -596,6 +646,8 @@ export function WidgetContent({
       return <SlaTable data={data as never} />;
     case 'top_paths_graph':
       return <TopPaths data={data as never} />;
+    case 'operation_durations_boxplot':
+      return <OperationDurationsBoxplot data={data as never} />;
     case 'process_graph': {
       const graph = data as { nodes: CytoscapeElement[]; edges: CytoscapeElement[] };
       return graph.nodes.length > 0 ? (

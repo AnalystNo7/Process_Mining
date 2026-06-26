@@ -271,6 +271,34 @@ async def test_process_graph_widget_data(
     }
 
 
+async def test_operation_durations_boxplot_widget_data(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    """T45: дефолтный виджет на process.duration отдаёт распределение
+    длительностей по операциям. На синтетических данных _xlsx() — 3 уникальные
+    операции (Старт/Согласование/Конец), все события длиной по 1 часу."""
+    _, widgets = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    boxplot = next(
+        w for w in widgets
+        if w["widget_type"] == "operation_durations_boxplot"
+    )
+    resp = await client.get(
+        f"/api/v1/widgets/{boxplot['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    names = {t["name"] for t in data["traces"]}
+    assert names == {"Старт", "Согласование", "Конец"}
+    for trace in data["traces"]:
+        # _xlsx() — все события по 1 часу → 3600 сек.
+        assert trace["median"] == 3600.0
+        assert trace["mean"] == 3600.0
+        assert trace["min"] == trace["max"] == 3600.0
+        assert trace["y"], "y не должно быть пустым"
+
+
 async def test_unsupported_widget_returns_422(
     client, analyst_user, db_session, tmp_path
 ) -> None:

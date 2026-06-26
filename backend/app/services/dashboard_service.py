@@ -103,6 +103,13 @@ _OVERVIEW_WIDGETS: list[dict[str, Any]] = [
 #   - top_paths_graph (process.paths) — есть в правой панели ProcessGraphTab.
 # Оставлены только независимые виджеты на process.rework и process.distribution.
 _PROCESS_WIDGETS: list[dict[str, Any]] = [
+    # T45: распределение длительности по топ-15 операциям. Делает видимыми
+    # «длинные хвосты» и расхождение медианы со средним (выбросы).
+    {"widget_type": "operation_durations_boxplot",
+     "title": "Длительность операций (ящик с усами)",
+     "tab": "process.duration",
+     "config": {"limit": 15, "activity_level": "raw"},
+     "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 6},
     {"widget_type": "rework_table", "title": "Таблица переделок",
      "tab": "process.rework", "config": {},
      "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 8},

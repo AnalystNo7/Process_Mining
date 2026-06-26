@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BusinessRuleError, EntityNotFoundError
 from app.db.models.dashboards import Dashboard, DashboardWidget
 from app.db.models.datasets import NamedSlice, VirtualDataset
+from app.domain.mining.duration import compute_operation_durations_boxplot
 from app.domain.mining.dynamics import (
     compute_case_flow,
     compute_events_per_case_histogram,
@@ -387,6 +388,17 @@ async def _operations_summary_short(
     }
 
 
+async def _operation_durations_boxplot(
+    db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
+    event_filter: EventFilter | None,
+) -> dict[str, Any]:
+    df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
+    column = analytics_service.activity_column(config.get("activity_level", "raw"))
+    return compute_operation_durations_boxplot(
+        df, column, int(config.get("limit", 15))
+    )
+
+
 async def _sla_compliance_table(
     db: AsyncSession, virtual: VirtualDataset, config: dict[str, Any],
     event_filter: EventFilter | None,
@@ -415,6 +427,7 @@ _HANDLERS = {
     "process_graph": _process_graph,
     "top_paths_graph": _top_paths_graph,
     "sla_compliance_table": _sla_compliance_table,
+    "operation_durations_boxplot": _operation_durations_boxplot,
 }
 
 

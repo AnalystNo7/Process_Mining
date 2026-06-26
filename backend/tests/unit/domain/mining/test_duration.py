@@ -4,6 +4,7 @@ import pandas as pd
 
 from app.domain.mining.duration import (
     compute_case_duration,
+    compute_operation_durations_boxplot,
     compute_own_duration,
     compute_sojourn_time,
 )
@@ -77,3 +78,64 @@ def test_case_duration() -> None:
     assert row["n_events"] == 2
     # с 1 янв 10:00 по 2 янв 14:00 = 28ч.
     assert row["duration_seconds"] == 28 * 3600
+
+
+# T45: «ящик с усами» — распределение длительности по операциям.
+
+
+def test_boxplot_empty_df_returns_empty_traces() -> None:
+    assert compute_operation_durations_boxplot(pd.DataFrame()) == {"traces": []}
+
+
+def test_boxplot_missing_duration_column_returns_empty_traces() -> None:
+    df = _df([{"activity": "A"}])
+    assert compute_operation_durations_boxplot(df) == {"traces": []}
+
+
+def test_boxplot_groups_by_activity_and_computes_quartiles() -> None:
+    df = _df(
+        [{"activity": "A", "own_duration_sec": v} for v in [10, 20, 30, 40, 50]]
+        + [{"activity": "B", "own_duration_sec": v} for v in [1, 2, 3]]
+    )
+    result = compute_operation_durations_boxplot(df)
+    by_name = {t["name"]: t for t in result["traces"]}
+    assert set(by_name) == {"A", "B"}
+    # A: n=5, median=30, mean=30, min=10, max=50, q1=20, q3=40 (linear).
+    a = by_name["A"]
+    assert a["n"] == 5
+    assert a["median"] == 30.0
+    assert a["mean"] == 30.0
+    assert a["min"] == 10.0
+    assert a["max"] == 50.0
+    assert a["q1"] == 20.0
+    assert a["q3"] == 40.0
+    assert a["y"] == [10.0, 20.0, 30.0, 40.0, 50.0]
+
+
+def test_boxplot_sorts_by_count_descending_and_applies_limit() -> None:
+    # A — 5 событий, B — 3, C — 1. limit=2 → останутся A и B, без C.
+    df = _df(
+        [{"activity": "A", "own_duration_sec": v} for v in range(5)]
+        + [{"activity": "B", "own_duration_sec": v} for v in range(3)]
+        + [{"activity": "C", "own_duration_sec": 42}]
+    )
+    result = compute_operation_durations_boxplot(df, limit=2)
+    names = [t["name"] for t in result["traces"]]
+    assert names == ["A", "B"]
+
+
+def test_boxplot_single_event_does_not_crash() -> None:
+    df = _df([{"activity": "A", "own_duration_sec": 123.0}])
+    [trace] = compute_operation_durations_boxplot(df)["traces"]
+    assert trace["n"] == 1
+    assert trace["median"] == 123.0
+    assert trace["q1"] == trace["q3"] == 123.0
+
+
+def test_boxplot_drops_null_durations() -> None:
+    df = pd.DataFrame(
+        {"activity": ["A", "A", "A"], "own_duration_sec": [10.0, None, 30.0]}
+    )
+    [trace] = compute_operation_durations_boxplot(df)["traces"]
+    assert trace["n"] == 2
+    assert trace["y"] == [10.0, 30.0]
