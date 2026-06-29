@@ -203,15 +203,17 @@ async def get_widget_data(
     widget_id: int,
     limit: int | None = Query(default=None, ge=1, le=100),
     sort_by: str | None = Query(default=None),
+    stat: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Рассчитанные данные для отрисовки виджета (форма зависит от типа).
 
-    Необязательные `limit`/`sort_by` — временные переопределения config из
-    выпадающих меню виджета (топ-N и ранжирование); в БД не сохраняются.
+    Необязательные `limit`/`sort_by`/`stat` — временные переопределения config
+    из выпадающих меню виджета (топ-N, ранжирование, медиана/среднее);
+    в БД не сохраняются.
     """
-    overrides = {"limit": limit, "sort_by": sort_by}
+    overrides = {"limit": limit, "sort_by": sort_by, "stat": stat}
     try:
         widget = await dashboard_service.get_widget(db, widget_id)
         return await widget_data_service.compute_widget_data(

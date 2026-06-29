@@ -729,7 +729,14 @@ function DurationBottleneckHeatmap({
   data,
 }: {
   data: {
-    cells: { x: string; y: string; value: number }[];
+    cells: {
+      x: string;
+      y: string;
+      value: number;
+      median: number;
+      mean: number;
+      n: number;
+    }[];
     x_categories: string[];
     y_categories: string[];
     x_label: string;
@@ -741,15 +748,18 @@ function DurationBottleneckHeatmap({
   }
   // Операции — по Y (в порядке ранга, топ-1 наверху за счёт reversed),
   // разрез (департамент/исполнитель) — по X. Подписи обеих осей обрезаются,
-  // полное имя и человекочитаемая длительность — в подсказке.
+  // полное имя и статистики (медиана/среднее/n) — в подсказке.
   const ys = data.y_categories;
   const xs = data.x_categories;
-  const lookup = new Map(data.cells.map((c) => [`${c.x}|${c.y}`, c.value]));
-  const z = ys.map((y) => xs.map((x) => lookup.get(`${x}|${y}`) ?? null));
+  const lookup = new Map(data.cells.map((c) => [`${c.x}|${c.y}`, c]));
+  const z = ys.map((y) => xs.map((x) => lookup.get(`${x}|${y}`)?.value ?? null));
   const text = ys.map((y) =>
     xs.map((x) => {
-      const v = lookup.get(`${x}|${y}`);
-      return v == null ? '' : `${y}<br>${x}<br>медиана: ${formatDuration(v)}`;
+      const c = lookup.get(`${x}|${y}`);
+      return c == null
+        ? ''
+        : `${y}<br>${x}<br>медиана: ${formatDuration(c.median)}` +
+            `<br>среднее: ${formatDuration(c.mean)}<br>событий: ${c.n}`;
     }),
   );
   // Шкала цвета в человекочитаемых единицах: 4 равномерные засечки.

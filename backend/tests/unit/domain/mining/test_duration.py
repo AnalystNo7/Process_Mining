@@ -232,6 +232,50 @@ def test_bottleneck_heatmap_median_per_cell() -> None:
     assert result["x_categories"] == ["D1", "D2"]
 
 
+def test_bottleneck_heatmap_cell_has_median_mean_n() -> None:
+    # Длительности [0, 0, 30] → median=0, mean=10, n=3.
+    df = _df(
+        [{"activity": "A", "department": "D", "own_duration_sec": v}
+         for v in [0.0, 0.0, 30.0]]
+    )
+    cell = compute_duration_bottleneck_heatmap(df)["cells"][0]
+    assert cell["median"] == 0.0
+    assert cell["mean"] == 10.0
+    assert cell["n"] == 3
+    # value по умолчанию = медиана.
+    assert cell["value"] == 0.0
+
+
+def test_bottleneck_heatmap_stat_mean_colors_by_mean() -> None:
+    df = _df(
+        [{"activity": "A", "department": "D", "own_duration_sec": v}
+         for v in [0.0, 0.0, 30.0]]
+    )
+    result = compute_duration_bottleneck_heatmap(df, stat="mean")
+    assert result["stat"] == "mean"
+    assert result["cells"][0]["value"] == 10.0  # = mean, не медиана (0)
+
+
+def test_bottleneck_heatmap_stat_mean_changes_duration_ranking() -> None:
+    # «Zeroish» — частые события, медиана 0, но среднее > 0 за счёт одного
+    # большого; «Small» — стабильно маленькие. По медиане Small впереди, по
+    # среднему — Zeroish.
+    df = _df(
+        [{"activity": "Zeroish", "department": "D", "own_duration_sec": v}
+         for v in [0.0, 0.0, 0.0, 900.0]]
+        + [{"activity": "Small", "department": "D", "own_duration_sec": v}
+           for v in [10.0, 10.0, 10.0, 10.0]]
+    )
+    by_median = compute_duration_bottleneck_heatmap(
+        df, sort_by="duration", limit=1, stat="median"
+    )
+    assert by_median["y_categories"] == ["Small"]
+    by_mean = compute_duration_bottleneck_heatmap(
+        df, sort_by="duration", limit=1, stat="mean"
+    )
+    assert by_mean["y_categories"] == ["Zeroish"]  # mean=225 > 10
+
+
 def test_bottleneck_heatmap_sort_by_duration_ranks_longest_first() -> None:
     df = _df(
         [{"activity": "Fast", "department": "D", "own_duration_sec": 1.0}] * 5

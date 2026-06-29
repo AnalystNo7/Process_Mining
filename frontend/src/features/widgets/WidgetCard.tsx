@@ -29,6 +29,13 @@ const SORT_BY_OPTIONS = [
   { value: 'duration', label: 'По длительности' },
 ];
 
+// Теплокарта узких мест: статистика для цвета/ранжирования. Среднее полезно,
+// когда медиана = 0 (много мгновенных событий start==end).
+const STAT_OPTIONS = [
+  { value: 'median', label: 'Медиана' },
+  { value: 'mean', label: 'Среднее' },
+];
+
 export function WidgetCard({
   widget,
   onDelete,
@@ -39,21 +46,30 @@ export function WidgetCard({
   editing?: boolean;
 }) {
   const hasControls = DURATION_CONTROL_TYPES.has(widget.widget_type);
+  const isHeatmap = widget.widget_type === 'duration_bottleneck_heatmap';
   // Дефолты меню берём из config виджета (топ-N и ранжирование). Для боксплота
   // и sojourn ранжирование по умолчанию — по частоте; у теплокарт — из config.
   const defaultLimit =
     typeof widget.config.limit === 'number' ? widget.config.limit : 15;
   const defaultSortBy =
     typeof widget.config.sort_by === 'string' ? widget.config.sort_by : 'frequency';
+  const defaultStat =
+    typeof widget.config.stat === 'string' ? widget.config.stat : 'median';
   const [limit, setLimit] = useState<number>(defaultLimit);
   const [sortBy, setSortBy] = useState<string>(defaultSortBy);
+  const [stat, setStat] = useState<string>(defaultStat);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: hasControls
-      ? ['widget-data', widget.id, limit, sortBy]
+      ? ['widget-data', widget.id, limit, sortBy, isHeatmap ? stat : null]
       : ['widget-data', widget.id],
     queryFn: () =>
-      getWidgetData(widget.id, hasControls ? { limit, sort_by: sortBy } : undefined),
+      getWidgetData(
+        widget.id,
+        hasControls
+          ? { limit, sort_by: sortBy, ...(isHeatmap ? { stat } : {}) }
+          : undefined,
+      ),
     // T43.1: при ошибке (таймаут, 500) не ретраим бесконечно — сразу
     // покажем Empty с сообщением, чтобы пользователь не сидел на <Spin />.
     retry: 1,
@@ -125,6 +141,15 @@ export function WidgetCard({
                   options={SORT_BY_OPTIONS}
                   style={{ width: 150 }}
                 />
+                {isHeatmap ? (
+                  <Select
+                    size="small"
+                    value={stat}
+                    onChange={setStat}
+                    options={STAT_OPTIONS}
+                    style={{ width: 110 }}
+                  />
+                ) : null}
               </>
             ) : null}
             {editing ? (

@@ -127,7 +127,7 @@ export async function updateDashboardLayout(
 
 export async function getWidgetData(
   widgetId: number,
-  params?: { limit?: number; sort_by?: string },
+  params?: { limit?: number; sort_by?: string; stat?: string },
 ): Promise<Record<string, unknown>> {
   // T43.1: явный таймаут 30 сек — чтобы зависший виджет не держал
   // <Spin /> бесконечно (на крупных DFG раньше уходило в timeout
