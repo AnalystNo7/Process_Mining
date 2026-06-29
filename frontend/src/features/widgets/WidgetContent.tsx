@@ -55,6 +55,17 @@ function truncateLabel(s: string, max = 32): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
+/** Равномерные засечки 0..maxValue (сек) с человекочитаемыми подписями.
+ * Заменяет сырые секунды на оси д/ч/м/с. */
+function durationTicks(
+  maxValue: number,
+  count = 6,
+): { tickvals: number[]; ticktext: string[] } {
+  const top = maxValue > 0 ? maxValue : 1;
+  const tickvals = Array.from({ length: count }, (_, i) => (top * i) / (count - 1));
+  return { tickvals, ticktext: tickvals.map((v) => formatDuration(v)) };
+}
+
 function BarOrLine({
   data,
   mode,
@@ -597,11 +608,21 @@ function OperationDurationsBoxplot({
     line: { color: '#1677ff' },
   }));
   const names = data.traces.map((tr) => tr.name);
+  const maxY = Math.max(
+    1,
+    ...data.traces.flatMap((tr) => (tr.y.length ? tr.y : [0])),
+  );
+  const yTicks = durationTicks(maxY);
   const layout: Partial<Layout> = {
     ...BASE_LAYOUT,
-    margin: { l: 64, r: 16, t: 16, b: 120 },
+    margin: { l: 72, r: 16, t: 16, b: 120 },
     showlegend: false,
-    yaxis: { title: { text: 'Длительность (сек)' } },
+    yaxis: {
+      title: { text: 'Длительность' },
+      tickmode: 'array',
+      tickvals: yTicks.tickvals,
+      ticktext: yTicks.ticktext,
+    },
     // Полное имя операции остаётся в name (видно в hover), подпись по оси
     // обрезается, чтобы длинные названия не налезали друг на друга.
     xaxis: {
@@ -644,18 +665,26 @@ function CaseDurationCdf({
   if (!data.points || data.points.length === 0) {
     return <Empty description="Нет данных для построения" />;
   }
+  const xs = data.points.map((p) => p.x);
   const trace = {
-    x: data.points.map((p) => p.x),
+    x: xs,
     y: data.points.map((p) => p.y),
     type: 'scatter',
     mode: 'lines',
     line: { color: '#1677ff', shape: 'hv' },
-    hovertemplate: '%{y:.1f}% ≤ %{x:.0f} сек<extra></extra>',
+    customdata: xs.map((v) => formatDuration(v)),
+    hovertemplate: '%{y:.1f}% ≤ %{customdata}<extra></extra>',
   };
+  const xTicks = durationTicks(Math.max(1, ...xs));
   const layout: Partial<Layout> = {
     ...BASE_LAYOUT,
     yaxis: { title: { text: data.y_label }, range: [0, 100] },
-    xaxis: { title: { text: data.x_label } },
+    xaxis: {
+      title: { text: 'Длительность' },
+      tickmode: 'array',
+      tickvals: xTicks.tickvals,
+      ticktext: xTicks.ticktext,
+    },
   };
   // Вертикальная линия SLA + подпись «X% уложились».
   if (data.sla_target_seconds != null) {
@@ -793,7 +822,8 @@ function SojournVsOwn({ data }: { data: { rows: SojournRow[] } }) {
     name: 'Работа',
     type: 'bar',
     marker: { color: '#1677ff' },
-    hovertemplate: '%{x}<br>Работа: %{y:.0f} сек<extra></extra>',
+    customdata: data.rows.map((r) => formatDuration(r.work_seconds)),
+    hovertemplate: '%{x}<br>Работа: %{customdata}<extra></extra>',
   };
   const wait = {
     x: activities,
@@ -801,19 +831,30 @@ function SojournVsOwn({ data }: { data: { rows: SojournRow[] } }) {
     name: 'Ожидание',
     type: 'bar',
     marker: { color: '#fa8c16' },
-    hovertemplate: '%{x}<br>Ожидание: %{y:.0f} сек<extra></extra>',
+    customdata: data.rows.map((r) => formatDuration(r.wait_seconds)),
+    hovertemplate: '%{x}<br>Ожидание: %{customdata}<extra></extra>',
   };
+  const maxTotal = Math.max(
+    1,
+    ...data.rows.map((r) => r.work_seconds + r.wait_seconds),
+  );
+  const yTicks = durationTicks(maxTotal);
   return (
     <PlotBox>
       <Plot
         data={[work, wait] as Data[]}
         layout={{
           ...BASE_LAYOUT,
-          margin: { l: 64, r: 16, t: 16, b: 120 },
+          margin: { l: 72, r: 16, t: 16, b: 120 },
           barmode: 'stack',
           showlegend: true,
           legend: { orientation: 'h' },
-          yaxis: { title: { text: 'Длительность (сек)' } },
+          yaxis: {
+            title: { text: 'Длительность' },
+            tickmode: 'array',
+            tickvals: yTicks.tickvals,
+            ticktext: yTicks.ticktext,
+          },
           // Полное имя — в hovertemplate, подпись по оси обрезается.
           xaxis: {
             tickmode: 'array',

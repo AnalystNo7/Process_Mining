@@ -37,12 +37,21 @@ from app.tasks.compute_stats import build_stats
 
 
 def format_duration_seconds(seconds: float) -> str:
-    days = int(seconds // 86400)
-    hours = int((seconds % 86400) // 3600)
-    minutes = int((seconds % 3600) // 60)
-    if days > 0:
-        return f"{days}д {hours}ч {minutes}м"
-    return f"{hours}ч {minutes}м"
+    """Адаптивно: до 2 старших единиц, с секундами для коротких значений.
+    Примеры: «12с», «45м 12с», «3ч 25м», «2д 3ч»."""
+    s = round(seconds)
+    if s < 60:
+        return f"{s}с"
+    if s < 3600:
+        minutes, sec = divmod(s, 60)
+        return f"{minutes}м {sec}с" if sec else f"{minutes}м"
+    if s < 86400:
+        hours, rem = divmod(s, 3600)
+        minutes = rem // 60
+        return f"{hours}ч {minutes}м" if minutes else f"{hours}ч"
+    days, rem = divmod(s, 86400)
+    hours = rem // 3600
+    return f"{days}д {hours}ч" if hours else f"{days}д"
 
 
 def format_value(value: Any, fmt: str) -> str:

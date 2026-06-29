@@ -26,7 +26,13 @@ def test_format_value_percent() -> None:
 
 
 def test_format_value_duration() -> None:
-    assert format_duration_seconds(2 * 86400 + 3 * 3600 + 5 * 60) == "2д 3ч 5м"
+    # Адаптивно: до 2 старших единиц, с секундами для коротких.
+    assert format_duration_seconds(2 * 86400 + 3 * 3600 + 5 * 60) == "2д 3ч"
+    assert format_duration_seconds(45) == "45с"
+    assert format_duration_seconds(90) == "1м 30с"
+    assert format_duration_seconds(3725) == "1ч 2м"
+    assert format_duration_seconds(0) == "0с"
+    assert format_duration_seconds(3 * 86400) == "3д"
 
 
 def test_format_value_none() -> None:
