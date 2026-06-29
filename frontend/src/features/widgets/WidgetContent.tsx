@@ -599,14 +599,69 @@ function OperationDurationsBoxplot({
   }
   // T45: один Plotly box-trace на операцию. boxmean: true рисует пунктирную
   // линию среднего поверх медианы — позволяет видеть скос распределения.
-  const traces = data.traces.map((tr) => ({
+  // Нативный hover ящика и сырые точки-выбросы отключены (boxpoints:false,
+  // hoverinfo:skip), т.к. Plotly показал бы значения как «300к» секунд.
+  // Вместо них — два scatter-слоя ниже с подсказками в д/ч/м/с.
+  const boxTraces = data.traces.map((tr) => ({
     type: 'box',
     name: tr.name,
     y: tr.y,
     boxmean: true,
+    boxpoints: false,
+    hoverinfo: 'skip',
     marker: { color: '#1677ff' },
     line: { color: '#1677ff' },
   }));
+  // Слой сводки: маркер у медианы каждой операции с полной подсказкой.
+  const summaryTrace = {
+    type: 'scatter',
+    mode: 'markers',
+    x: data.traces.map((tr) => tr.name),
+    y: data.traces.map((tr) => tr.median),
+    marker: { color: '#1677ff', size: 12, symbol: 'line-ew-open' },
+    customdata: data.traces.map((tr) => [
+      formatDuration(tr.median),
+      formatDuration(tr.mean),
+      formatDuration(tr.q1),
+      formatDuration(tr.q3),
+      formatDuration(tr.min),
+      formatDuration(tr.max),
+      tr.n,
+    ]),
+    hovertemplate:
+      '%{x}<br>медиана: %{customdata[0]}<br>среднее: %{customdata[1]}' +
+      '<br>Q1–Q3: %{customdata[2]} – %{customdata[3]}' +
+      '<br>мин–макс: %{customdata[4]} – %{customdata[5]}' +
+      '<br>событий: %{customdata[6]}<extra></extra>',
+    showlegend: false,
+  };
+  // Слой выбросов: точки за оградой [q1−1.5·IQR, q3+1.5·IQR], hover в д/ч/м/с.
+  const outX: string[] = [];
+  const outY: number[] = [];
+  const outText: string[] = [];
+  data.traces.forEach((tr) => {
+    const iqr = tr.q3 - tr.q1;
+    const lo = tr.q1 - 1.5 * iqr;
+    const hi = tr.q3 + 1.5 * iqr;
+    tr.y.forEach((v) => {
+      if (v < lo || v > hi) {
+        outX.push(tr.name);
+        outY.push(v);
+        outText.push(formatDuration(v));
+      }
+    });
+  });
+  const outlierTrace = {
+    type: 'scatter',
+    mode: 'markers',
+    x: outX,
+    y: outY,
+    marker: { color: 'rgba(22,119,255,0.45)', size: 5 },
+    customdata: outText,
+    hovertemplate: 'выброс: %{customdata}<extra></extra>',
+    showlegend: false,
+  };
+  const traces = [...boxTraces, summaryTrace, outlierTrace];
   const names = data.traces.map((tr) => tr.name);
   const maxY = Math.max(
     1,
