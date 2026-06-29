@@ -305,6 +305,26 @@ async def test_operation_durations_boxplot_widget_data(
         assert trace["y"], "y не должно быть пустым"
 
 
+async def test_widget_data_query_param_overrides_limit(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    """Временный override через query-параметры: ?limit=2&sort_by=duration
+    ограничивает выдачу боксплота двумя операциями (config в БД не меняется)."""
+    _, widgets = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    boxplot = next(
+        w for w in widgets if w["widget_type"] == "operation_durations_boxplot"
+    )
+    resp = await client.get(
+        f"/api/v1/widgets/{boxplot['id']}/data",
+        params={"limit": 2, "sort_by": "duration"},
+        headers=analyst_user.headers,
+    )
+    assert resp.status_code == 200
+    assert len(resp.json()["traces"]) == 2
+
+
 async def test_case_duration_cdf_widget_data(
     client, analyst_user, db_session, tmp_path
 ) -> None:

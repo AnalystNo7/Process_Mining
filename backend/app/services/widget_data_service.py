@@ -408,8 +408,11 @@ async def _operation_durations_boxplot(
 ) -> dict[str, Any]:
     df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
     column = analytics_service.activity_column(config.get("activity_level", "raw"))
+    sort_by = config.get("sort_by", "frequency")
+    if sort_by not in ("frequency", "duration"):
+        sort_by = "frequency"
     return compute_operation_durations_boxplot(
-        df, column, int(config.get("limit", 15))
+        df, column, int(config.get("limit", 15)), sort_by
     )
 
 
@@ -446,7 +449,12 @@ async def _sojourn_vs_own(
 ) -> dict[str, Any]:
     df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
     column = analytics_service.activity_column(config.get("activity_level", "raw"))
-    return compute_sojourn_vs_own(df, column, int(config.get("limit", 15)))
+    sort_by = config.get("sort_by", "frequency")
+    if sort_by not in ("frequency", "duration"):
+        sort_by = "frequency"
+    return compute_sojourn_vs_own(
+        df, column, int(config.get("limit", 15)), sort_by
+    )
 
 
 async def _sla_compliance_table(
@@ -484,8 +492,16 @@ _HANDLERS = {
 }
 
 
-async def compute_widget_data(db: AsyncSession, widget: DashboardWidget) -> dict[str, Any]:
-    """Считает данные виджета: применяет фильтры, вызывает нужный алгоритм."""
+async def compute_widget_data(
+    db: AsyncSession,
+    widget: DashboardWidget,
+    overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Считает данные виджета: применяет фильтры, вызывает нужный алгоритм.
+
+    `overrides` — временные переопределения config из query-параметров запроса
+    (например, limit/sort_by из выпадающих меню виджета). В БД не сохраняются.
+    """
     dashboard = await db.get(Dashboard, widget.dashboard_id)
     if dashboard is None:
         raise EntityNotFoundError("Дашборд виджета не найден")
@@ -502,4 +518,6 @@ async def compute_widget_data(db: AsyncSession, widget: DashboardWidget) -> dict
     config = dict(widget.config or {})
     if widget.widget_type in _GRANULARITY_WIDGETS and "granularity" not in config:
         config["granularity"] = _dashboard_granularity(dashboard)
+    if overrides:
+        config.update({k: v for k, v in overrides.items() if v is not None})
     return await handler(db, virtual, config, event_filter)

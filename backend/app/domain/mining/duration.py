@@ -53,12 +53,18 @@ def compute_case_duration(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def compute_operation_durations_boxplot(
-    df: pd.DataFrame, activity_col: str = "activity", limit: int = 15
+    df: pd.DataFrame,
+    activity_col: str = "activity",
+    limit: int = 15,
+    sort_by: str = "frequency",
 ) -> dict[str, Any]:
     """T45: распределение длительности операций для виджета «ящик с усами».
 
-    Возвращает `{'traces': [...]}` — список словарей по топ-`limit` операциям,
-    отсортированных по частоте (`n_events`) убыванию. Для каждой операции:
+    Возвращает `{'traces': [...]}` — список словарей по топ-`limit` операциям.
+    Ранжирование по `sort_by`:
+    - "frequency" — по числу событий (самые массовые операции);
+    - "duration"  — по медиане own_duration_sec (самые долгие операции).
+    Для каждой операции:
         name   — название операции (значение `activity_col`);
         y      — массив длительностей (own_duration_sec, сек.), Plotly из него
                  рисует ящик, усы и точки-выбросы;
@@ -74,9 +80,15 @@ def compute_operation_durations_boxplot(
     if durations.empty:
         return {"traces": []}
 
-    counts = (
-        durations.groupby(activity_col).size().sort_values(ascending=False).head(limit)
-    )
+    if sort_by == "duration":
+        ranked = (
+            durations.groupby(activity_col)["own_duration_sec"]
+            .median()
+            .sort_values(ascending=False)
+        )
+    else:
+        ranked = durations.groupby(activity_col).size().sort_values(ascending=False)
+    counts = ranked.head(limit)
 
     traces: list[dict[str, Any]] = []
     for activity in counts.index:
@@ -239,13 +251,20 @@ def compute_duration_bottleneck_heatmap(
 
 
 def compute_sojourn_vs_own(
-    df: pd.DataFrame, activity_col: str = "activity", limit: int = 15
+    df: pd.DataFrame,
+    activity_col: str = "activity",
+    limit: int = 15,
+    sort_by: str = "frequency",
 ) -> dict[str, Any]:
     """Комбо-длительность №3: работа vs ожидание по операциям.
 
     На каждую операцию: «работа» = медиана own_duration_sec; «ожидание» =
     медиана max(sojourn − own, 0), где sojourn — длительность с учётом простоя
-    между событиями (compute_sojourn_time). Топ-`limit` операций по частоте.
+    между событиями (compute_sojourn_time). Топ-`limit` операций, ранжирование
+    по `sort_by`:
+    - "frequency" — по числу событий;
+    - "duration"  — по медиане суммарного времени (work + wait) = высота
+      столбца, т.е. самые «тяжёлые» по полному времени операции.
     Пустой df → rows: [].
     """
     if df.empty or "own_duration_sec" not in df.columns:
@@ -262,9 +281,16 @@ def compute_sojourn_vs_own(
         {activity_col: enriched[activity_col].to_numpy(), "own": own, "wait": wait}
     )
 
-    counts = (
-        work_df.groupby(activity_col).size().sort_values(ascending=False).head(limit)
-    )
+    if sort_by == "duration":
+        ranked = (
+            work_df.assign(total=work_df["own"] + work_df["wait"])
+            .groupby(activity_col)["total"]
+            .median()
+            .sort_values(ascending=False)
+        )
+    else:
+        ranked = work_df.groupby(activity_col).size().sort_values(ascending=False)
+    counts = ranked.head(limit)
     rows: list[dict[str, Any]] = []
     for activity in counts.index:
         sub = work_df[work_df[activity_col] == activity]

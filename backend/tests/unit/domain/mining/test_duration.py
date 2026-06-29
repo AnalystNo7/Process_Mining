@@ -127,6 +127,18 @@ def test_boxplot_sorts_by_count_descending_and_applies_limit() -> None:
     assert names == ["A", "B"]
 
 
+def test_boxplot_sort_by_duration_ranks_longest_first() -> None:
+    # Short — частая (5 событий), но короткая; Long — редкая (2), но долгая.
+    df = _df(
+        [{"activity": "Short", "own_duration_sec": 1.0} for _ in range(5)]
+        + [{"activity": "Long", "own_duration_sec": 1000.0} for _ in range(2)]
+    )
+    by_freq = compute_operation_durations_boxplot(df, limit=1, sort_by="frequency")
+    assert [t["name"] for t in by_freq["traces"]] == ["Short"]
+    by_dur = compute_operation_durations_boxplot(df, limit=1, sort_by="duration")
+    assert [t["name"] for t in by_dur["traces"]] == ["Long"]
+
+
 def test_boxplot_single_event_does_not_crash() -> None:
     df = _df([{"activity": "A", "own_duration_sec": 123.0}])
     [trace] = compute_operation_durations_boxplot(df)["traces"]
@@ -278,3 +290,25 @@ def test_sojourn_vs_own_wait_is_sojourn_minus_own() -> None:
     rows = {r["activity"]: r for r in compute_sojourn_vs_own(df)["rows"]}
     assert rows["B"]["work_seconds"] == 2 * 3600
     assert rows["B"]["wait_seconds"] == 1 * 3600
+
+
+def test_sojourn_vs_own_sort_by_duration_ranks_by_total_time() -> None:
+    # Short — частая, но короткая (по 6 мин); Long — реже, но долгая (по 2ч).
+    # Все события первые в своих кейсах → wait=0, total = own.
+    rows_data = []
+    for i in range(4):
+        rows_data.append(
+            {"case_id": f"S{i}", "activity": "Short",
+             "timestamp_start": _ts(1, 0), "timestamp_end": _ts(1, 0)}
+        )
+    for i in range(2):
+        rows_data.append(
+            {"case_id": f"L{i}", "activity": "Long",
+             "timestamp_start": _ts(1, 0), "timestamp_end": _ts(1, 2)}
+        )
+    df = _df(rows_data)
+    df["own_duration_sec"] = compute_own_duration(df)
+    by_freq = compute_sojourn_vs_own(df, limit=1, sort_by="frequency")
+    assert [r["activity"] for r in by_freq["rows"]] == ["Short"]
+    by_dur = compute_sojourn_vs_own(df, limit=1, sort_by="duration")
+    assert [r["activity"] for r in by_dur["rows"]] == ["Long"]

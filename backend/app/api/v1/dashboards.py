@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -201,13 +201,22 @@ async def add_widget(
 @router.get("/widgets/{widget_id}/data")
 async def get_widget_data(
     widget_id: int,
+    limit: int | None = Query(default=None, ge=1, le=100),
+    sort_by: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Рассчитанные данные для отрисовки виджета (форма зависит от типа)."""
+    """Рассчитанные данные для отрисовки виджета (форма зависит от типа).
+
+    Необязательные `limit`/`sort_by` — временные переопределения config из
+    выпадающих меню виджета (топ-N и ранжирование); в БД не сохраняются.
+    """
+    overrides = {"limit": limit, "sort_by": sort_by}
     try:
         widget = await dashboard_service.get_widget(db, widget_id)
-        return await widget_data_service.compute_widget_data(db, widget)
+        return await widget_data_service.compute_widget_data(
+            db, widget, overrides=overrides
+        )
     except EntityNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     except BusinessRuleError as exc:
