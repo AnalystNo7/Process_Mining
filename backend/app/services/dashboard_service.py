@@ -134,7 +134,7 @@ _PROCESS_WIDGETS: list[dict[str, Any]] = [
      "tab": "process.duration",
      "config": {"limit": 15, "activity_level": "raw"},
      "grid_x": 0, "grid_y": 28, "grid_width": 12, "grid_height": 6},
-    {"widget_type": "rework_table", "title": "Таблица переделок",
+    {"widget_type": "rework_table", "title": "Таблица повторов",
      "tab": "process.rework", "config": {},
      "grid_x": 0, "grid_y": 0, "grid_width": 12, "grid_height": 8},
     {"widget_type": "monthly_dynamics", "title": "Динамика по месяцам",

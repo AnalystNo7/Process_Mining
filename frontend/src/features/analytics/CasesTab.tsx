@@ -122,7 +122,7 @@ export function CasesTab({
       render: (value: number) => formatDuration(value),
     },
     {
-      title: 'Переделки',
+      title: 'Повторы',
       dataIndex: 'has_rework',
       key: 'has_rework',
       width: 120,
@@ -229,7 +229,7 @@ function CaseDetailView({
         <Descriptions.Item label="Общая длительность">
           {formatDuration(data?.total_duration_seconds)}
         </Descriptions.Item>
-        <Descriptions.Item label="Переделки">
+        <Descriptions.Item label="Повторы">
           {data?.has_rework ? 'Есть' : 'Нет'}
         </Descriptions.Item>
       </Descriptions>

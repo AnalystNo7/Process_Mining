@@ -187,7 +187,7 @@ function ReworkTable({ data }: { data: { rows: ReworkRow[]; global_rework_pct: n
       sorter: (a, b) => a.repeats - b.repeats,
     },
     {
-      title: '% переделок',
+      title: '% повторов',
       dataIndex: 'rework_pct',
       key: 'rework_pct',
       width: 120,
@@ -198,7 +198,7 @@ function ReworkTable({ data }: { data: { rows: ReworkRow[]; global_rework_pct: n
   return (
     <div>
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
-        Глобальный уровень переделок: {data.global_rework_pct.toFixed(2)}%
+        Глобальный уровень повторов: {data.global_rework_pct.toFixed(2)}%
       </Typography.Paragraph>
       <Table
         rowKey="activity"

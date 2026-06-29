@@ -15,7 +15,7 @@ export const WIDGET_TYPES: WidgetTypeOption[] = [
   { value: 'bar_chart', label: 'Столбчатая диаграмма' },
   { value: 'line_chart', label: 'Линейный график' },
   { value: 'heatmap', label: 'Тепловая карта' },
-  { value: 'rework_table', label: 'Таблица переделок' },
+  { value: 'rework_table', label: 'Таблица повторов' },
   { value: 'resource_analysis_table', label: 'Анализ ресурсов' },
   { value: 'sla_compliance_table', label: 'Соблюдение SLA' },
   { value: 'top_paths_graph', label: 'Топ маршрутов' },
@@ -47,7 +47,7 @@ export const KPI_METRICS: KpiMetricOption[] = [
   { value: 'total_events', label: 'Операции', format: 'number' },
   { value: 'unique_activities', label: 'Уникальные операции', format: 'number' },
   { value: 'unique_traces', label: 'Уникальных маршрутов', format: 'number' },
-  { value: 'global_rework_pct', label: 'Доля переделок', format: 'percent' },
+  { value: 'global_rework_pct', label: 'Доля повторов', format: 'percent' },
   { value: 'variability_pct', label: 'Вариативность путей', format: 'percent' },
   { value: 'mean_occurrence_pct', label: 'Встречаемость операций', format: 'percent' },
   {
