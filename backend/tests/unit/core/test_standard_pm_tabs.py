@@ -112,12 +112,12 @@ def test_process_subtabs_have_default_widgets() -> None:
 
 
 def test_process_duration_has_combo() -> None:
-    """T45 + комбо: на process.duration лежат 4 виджета длительности —
-    боксплот, CDF, теплокарта узких мест, работа/ожидание."""
-    duration_widgets = {
-        w["widget_type"] for w in _PROCESS_WIDGETS if w["tab"] == "process.duration"
-    }
-    assert duration_widgets == {
+    """T45 + комбо: на process.duration лежат 5 виджетов длительности —
+    боксплот, CDF, две теплокарты узких мест (по длительности и по частоте),
+    работа/ожидание."""
+    duration = [w for w in _PROCESS_WIDGETS if w["tab"] == "process.duration"]
+    types = {w["widget_type"] for w in duration}
+    assert types == {
         "operation_durations_boxplot",
         "case_duration_cdf",
         "duration_bottleneck_heatmap",
@@ -125,19 +125,23 @@ def test_process_duration_has_combo() -> None:
     }
     # Боксплот сохраняет дефолты T45.
     boxplot = next(
-        w for w in _PROCESS_WIDGETS
-        if w["widget_type"] == "operation_durations_boxplot"
+        w for w in duration if w["widget_type"] == "operation_durations_boxplot"
     )
     assert boxplot["config"]["limit"] == 15
     assert boxplot["config"]["activity_level"] == "raw"
     # CDF имеет цель SLA по умолчанию.
-    cdf = next(
-        w for w in _PROCESS_WIDGETS if w["widget_type"] == "case_duration_cdf"
-    )
+    cdf = next(w for w in duration if w["widget_type"] == "case_duration_cdf")
     assert cdf["config"]["sla_target_hours"] == 24
+    # Две теплокарты: одна по длительности, одна по частоте.
+    heatmaps = [
+        w for w in duration if w["widget_type"] == "duration_bottleneck_heatmap"
+    ]
+    assert len(heatmaps) == 2
+    assert {h["config"]["sort_by"] for h in heatmaps} == {"duration", "frequency"}
+    assert all(h["config"]["limit"] == 10 for h in heatmaps)
 
 
 def test_default_widgets_count() -> None:
-    """Комбо: 13 overview + 6 process (rework, distribution, 4×duration)
-    + 1 details = 20 виджетов."""
-    assert len(_DEFAULT_WIDGETS) == 20
+    """Комбо: 13 overview + 7 process (rework, distribution, 5×duration)
+    + 1 details = 21 виджет."""
+    assert len(_DEFAULT_WIDGETS) == 21

@@ -49,7 +49,7 @@ async def test_default_dashboard_created_with_vd(
     detail = await client.get(
         f"/api/v1/dashboards/{dashboard_id}", headers=analyst_user.headers
     )
-    assert len(detail.json()["widgets"]) == 20
+    assert len(detail.json()["widgets"]) == 21
 
 
 async def test_dashboard_crud(client, analyst_user, db_session) -> None:
@@ -177,7 +177,7 @@ async def test_duplicate_dashboard_copies_widgets(
     )
     assert resp.status_code == 201
     assert resp.json()["name"] == "Обзор процесса (копия)"
-    assert len(resp.json()["widgets"]) == 20
+    assert len(resp.json()["widgets"]) == 21
 
 
 async def test_dashboard_delete_other_user_forbidden(

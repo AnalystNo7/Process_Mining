@@ -423,7 +423,12 @@ async def _duration_bottleneck_heatmap(
     dimension = config.get("dimension", "department")
     if dimension not in ("department", "resource"):
         dimension = "department"
-    return compute_duration_bottleneck_heatmap(df, column, dimension)
+    sort_by = config.get("sort_by", "duration")
+    if sort_by not in ("duration", "frequency"):
+        sort_by = "duration"
+    return compute_duration_bottleneck_heatmap(
+        df, column, dimension, int(config.get("limit", 10)), sort_by
+    )
 
 
 async def _sojourn_vs_own(

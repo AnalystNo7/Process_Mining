@@ -334,9 +334,10 @@ async def test_duration_bottleneck_heatmap_widget_data(
     assert resp.status_code == 200
     data = resp.json()
     assert data["cells"], "cells не должны быть пустыми"
-    xs = {c["x"] for c in data["cells"]}
-    assert xs == {"Старт", "Согласование", "Конец"}
-    assert data["y_label"] == "Департамент"
+    # Операции теперь по оси Y (y_categories), разрез — по X.
+    assert set(data["y_categories"]) <= {"Старт", "Согласование", "Конец"}
+    assert data["x_label"] == "Департамент"
+    assert data["y_label"] == "Операция"
 
 
 async def test_sojourn_vs_own_widget_data(

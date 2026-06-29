@@ -49,6 +49,12 @@ function PlotBox({ children }: { children: React.ReactNode }) {
   return <div style={PLOT_BOX_STYLE}>{children}</div>;
 }
 
+/** Обрезает длинную подпись до max символов с многоточием. Полное имя
+ * показывается в подсказке (hover) — см. виджеты длительности. */
+function truncateLabel(s: string, max = 32): string {
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
 function BarOrLine({
   data,
   mode,
@@ -590,12 +596,21 @@ function OperationDurationsBoxplot({
     marker: { color: '#1677ff' },
     line: { color: '#1677ff' },
   }));
+  const names = data.traces.map((tr) => tr.name);
   const layout: Partial<Layout> = {
     ...BASE_LAYOUT,
-    margin: { l: 64, r: 16, t: 16, b: 96 },
+    margin: { l: 64, r: 16, t: 16, b: 120 },
     showlegend: false,
     yaxis: { title: { text: 'Длительность (сек)' } },
-    xaxis: { tickangle: -25, automargin: true },
+    // Полное имя операции остаётся в name (видно в hover), подпись по оси
+    // обрезается, чтобы длинные названия не налезали друг на друга.
+    xaxis: {
+      tickmode: 'array',
+      tickvals: names,
+      ticktext: names.map((n) => truncateLabel(n, 24)),
+      tickangle: -30,
+      automargin: true,
+    },
   };
   return (
     <PlotBox>
@@ -686,6 +701,8 @@ function DurationBottleneckHeatmap({
 }: {
   data: {
     cells: { x: string; y: string; value: number }[];
+    x_categories: string[];
+    y_categories: string[];
     x_label: string;
     y_label: string;
   };
@@ -693,17 +710,24 @@ function DurationBottleneckHeatmap({
   if (!data.cells || data.cells.length === 0) {
     return <Empty description="Нет данных для построения" />;
   }
-  const xs = Array.from(new Set(data.cells.map((c) => c.x))).sort();
-  const ys = Array.from(new Set(data.cells.map((c) => c.y))).sort();
+  // Операции — по Y (в порядке ранга, топ-1 наверху за счёт reversed),
+  // разрез (департамент/исполнитель) — по X. Подписи обеих осей обрезаются,
+  // полное имя и человекочитаемая длительность — в подсказке.
+  const ys = data.y_categories;
+  const xs = data.x_categories;
   const lookup = new Map(data.cells.map((c) => [`${c.x}|${c.y}`, c.value]));
   const z = ys.map((y) => xs.map((x) => lookup.get(`${x}|${y}`) ?? null));
-  // Текст с человекочитаемой длительностью в подсказке.
   const text = ys.map((y) =>
     xs.map((x) => {
       const v = lookup.get(`${x}|${y}`);
-      return v == null ? '' : formatDuration(v);
+      return v == null ? '' : `${y}<br>${x}<br>медиана: ${formatDuration(v)}`;
     }),
   );
+  // Шкала цвета в человекочитаемых единицах: 4 равномерные засечки.
+  const vals = data.cells.map((c) => c.value);
+  const mn = Math.min(...vals);
+  const mx = Math.max(...vals);
+  const tickvals = [0, 1, 2, 3].map((i) => mn + ((mx - mn) * i) / 3);
   return (
     <PlotBox>
       <Plot
@@ -715,17 +739,33 @@ function DurationBottleneckHeatmap({
               y: ys,
               z,
               text,
+              hoverinfo: 'text',
               colorscale: 'Reds',
-              hovertemplate: '%{y} · %{x}<br>медиана: %{text}<extra></extra>',
-              colorbar: { title: { text: 'сек' } },
+              colorbar: {
+                tickvals,
+                ticktext: tickvals.map((v) => formatDuration(v)),
+              },
             },
           ] as unknown as Data[]
         }
         layout={{
           ...BASE_LAYOUT,
-          margin: { l: 120, r: 16, t: 16, b: 96 },
-          xaxis: { title: { text: data.x_label }, tickangle: -25, automargin: true },
-          yaxis: { title: { text: data.y_label }, automargin: true },
+          margin: { l: 240, r: 16, t: 16, b: 80 },
+          xaxis: {
+            title: { text: data.x_label },
+            tickmode: 'array',
+            tickvals: xs,
+            ticktext: xs.map((s) => truncateLabel(s, 20)),
+            tickangle: -20,
+            automargin: true,
+          },
+          yaxis: {
+            tickmode: 'array',
+            tickvals: ys,
+            ticktext: ys.map((s) => truncateLabel(s, 40)),
+            autorange: 'reversed',
+            automargin: true,
+          },
         }}
         style={PLOT_STYLE}
         config={PLOT_CONFIG}
@@ -753,6 +793,7 @@ function SojournVsOwn({ data }: { data: { rows: SojournRow[] } }) {
     name: 'Работа',
     type: 'bar',
     marker: { color: '#1677ff' },
+    hovertemplate: '%{x}<br>Работа: %{y:.0f} сек<extra></extra>',
   };
   const wait = {
     x: activities,
@@ -760,6 +801,7 @@ function SojournVsOwn({ data }: { data: { rows: SojournRow[] } }) {
     name: 'Ожидание',
     type: 'bar',
     marker: { color: '#fa8c16' },
+    hovertemplate: '%{x}<br>Ожидание: %{y:.0f} сек<extra></extra>',
   };
   return (
     <PlotBox>
@@ -767,12 +809,19 @@ function SojournVsOwn({ data }: { data: { rows: SojournRow[] } }) {
         data={[work, wait] as Data[]}
         layout={{
           ...BASE_LAYOUT,
-          margin: { l: 64, r: 16, t: 16, b: 96 },
+          margin: { l: 64, r: 16, t: 16, b: 120 },
           barmode: 'stack',
           showlegend: true,
           legend: { orientation: 'h' },
           yaxis: { title: { text: 'Длительность (сек)' } },
-          xaxis: { tickangle: -25, automargin: true },
+          // Полное имя — в hovertemplate, подпись по оси обрезается.
+          xaxis: {
+            tickmode: 'array',
+            tickvals: activities,
+            ticktext: activities.map((n) => truncateLabel(n, 24)),
+            tickangle: -30,
+            automargin: true,
+          },
         }}
         style={PLOT_STYLE}
         config={PLOT_CONFIG}

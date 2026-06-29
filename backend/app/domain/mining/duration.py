@@ -169,32 +169,73 @@ def compute_case_duration_cdf(
 
 
 def compute_duration_bottleneck_heatmap(
-    df: pd.DataFrame, activity_col: str = "activity", dimension_col: str = "department"
+    df: pd.DataFrame,
+    activity_col: str = "activity",
+    dimension_col: str = "department",
+    limit: int = 10,
+    sort_by: str = "duration",
 ) -> dict[str, Any]:
     """Комбо-длительность №2: теплокарта узких мест.
 
-    Матрица операция × разрез (департамент/исполнитель); значение ячейки —
-    МЕДИАНА собственной длительности операции (own_duration_sec) в этом разрезе.
-    Формат cells совпадает с обычным виджетом heatmap, чтобы переиспользовать
-    отрисовку. Пустой df / нет нужных колонок → cells: [].
+    Матрица **операция (ось Y) × разрез (ось X, департамент/исполнитель)**;
+    значение ячейки — МЕДИАНА собственной длительности операции
+    (own_duration_sec, сек.) в этом разрезе.
+
+    Показываются только топ-`limit` операций, ранжированных по `sort_by`:
+    - "duration" — по медиане длительности (самые долгие операции);
+    - "frequency" — по числу событий (самые частые операции).
+    Операции возвращаются в `y_categories` в порядке ранга (первая — топ-1),
+    разрезы — в `x_categories` (отсортированы по алфавиту). Фронт строит
+    матрицу строго по этим спискам (без алфавитной пересортировки) и обрезает
+    длинные подписи.
+
+    Пустой df / нет нужных колонок → cells/categories пустые.
     """
-    x_label = "Операция"
-    y_label = "Департамент" if dimension_col == "department" else "Исполнитель"
+    x_label = "Департамент" if dimension_col == "department" else "Исполнитель"
+    y_label = "Операция"
+    base = {
+        "cells": [],
+        "x_categories": [],
+        "y_categories": [],
+        "x_label": x_label,
+        "y_label": y_label,
+        "sort_by": sort_by,
+    }
     needed = {activity_col, dimension_col, "own_duration_sec"}
     if df.empty or not needed.issubset(df.columns):
-        return {"cells": [], "x_label": x_label, "y_label": y_label}
+        return base
 
-    grouped = (
-        df[[activity_col, dimension_col, "own_duration_sec"]]
-        .dropna(subset=[activity_col, dimension_col])
-        .groupby([activity_col, dimension_col])["own_duration_sec"]
-        .median()
+    work = df[[activity_col, dimension_col, "own_duration_sec"]].dropna(
+        subset=[activity_col, dimension_col]
     )
+    if work.empty:
+        return base
+
+    if sort_by == "frequency":
+        ranked = work.groupby(activity_col).size().sort_values(ascending=False)
+    else:
+        ranked = (
+            work.groupby(activity_col)["own_duration_sec"]
+            .median()
+            .sort_values(ascending=False)
+        )
+    top_activities = [str(a) for a in ranked.head(limit).index]
+
+    sub = work[work[activity_col].astype(str).isin(top_activities)]
+    grouped = sub.groupby([activity_col, dimension_col])["own_duration_sec"].median()
     cells = [
-        {"x": str(activity), "y": str(dim), "value": float(median_sec)}
+        {"x": str(dim), "y": str(activity), "value": float(median_sec)}
         for (activity, dim), median_sec in grouped.items()
     ]
-    return {"cells": cells, "x_label": x_label, "y_label": y_label}
+    x_categories = sorted({str(d) for d in sub[dimension_col].unique()})
+    return {
+        "cells": cells,
+        "x_categories": x_categories,
+        "y_categories": top_activities,
+        "x_label": x_label,
+        "y_label": y_label,
+        "sort_by": sort_by,
+    }
 
 
 def compute_sojourn_vs_own(

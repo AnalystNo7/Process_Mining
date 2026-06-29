@@ -193,10 +193,14 @@ def test_cdf_no_sla_target_means_none() -> None:
 
 
 def test_bottleneck_heatmap_empty() -> None:
-    assert compute_duration_bottleneck_heatmap(pd.DataFrame())["cells"] == []
+    result = compute_duration_bottleneck_heatmap(pd.DataFrame())
+    assert result["cells"] == []
+    assert result["x_categories"] == []
+    assert result["y_categories"] == []
 
 
 def test_bottleneck_heatmap_median_per_cell() -> None:
+    # cells: x = разрез (департамент), y = операция.
     df = _df(
         [
             {"activity": "A", "department": "D1", "own_duration_sec": 10.0},
@@ -207,16 +211,37 @@ def test_bottleneck_heatmap_median_per_cell() -> None:
     )
     result = compute_duration_bottleneck_heatmap(df, dimension_col="department")
     cells = {(c["x"], c["y"]): c["value"] for c in result["cells"]}
-    assert cells[("A", "D1")] == 20.0  # median(10, 30)
-    assert cells[("A", "D2")] == 100.0
-    assert cells[("B", "D1")] == 5.0
-    assert result["y_label"] == "Департамент"
+    assert cells[("D1", "A")] == 20.0  # median(10, 30)
+    assert cells[("D2", "A")] == 100.0
+    assert cells[("D1", "B")] == 5.0
+    assert result["x_label"] == "Департамент"
+    assert result["y_label"] == "Операция"
+    assert set(result["y_categories"]) == {"A", "B"}
+    assert result["x_categories"] == ["D1", "D2"]
+
+
+def test_bottleneck_heatmap_sort_by_duration_ranks_longest_first() -> None:
+    df = _df(
+        [{"activity": "Fast", "department": "D", "own_duration_sec": 1.0}] * 5
+        + [{"activity": "Slow", "department": "D", "own_duration_sec": 1000.0}]
+    )
+    result = compute_duration_bottleneck_heatmap(df, sort_by="duration", limit=1)
+    assert result["y_categories"] == ["Slow"]  # самая долгая медиана
+
+
+def test_bottleneck_heatmap_sort_by_frequency_ranks_most_common_first() -> None:
+    df = _df(
+        [{"activity": "Fast", "department": "D", "own_duration_sec": 1.0}] * 5
+        + [{"activity": "Slow", "department": "D", "own_duration_sec": 1000.0}]
+    )
+    result = compute_duration_bottleneck_heatmap(df, sort_by="frequency", limit=1)
+    assert result["y_categories"] == ["Fast"]  # самая частая
 
 
 def test_bottleneck_heatmap_resource_dimension_label() -> None:
     df = _df([{"activity": "A", "resource": "U1", "own_duration_sec": 7.0}])
     result = compute_duration_bottleneck_heatmap(df, dimension_col="resource")
-    assert result["y_label"] == "Исполнитель"
+    assert result["x_label"] == "Исполнитель"
     assert result["cells"][0]["value"] == 7.0
 
 
