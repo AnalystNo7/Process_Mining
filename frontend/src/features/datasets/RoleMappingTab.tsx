@@ -105,7 +105,30 @@ export function RoleMappingTab({ projectId }: { projectId: number }) {
   const rows: MappingRow[] = Object.keys(draft)
     .sort()
     .map((department) => ({ department, role: draft[department] }));
-  const unmappedCount = rows.filter((r) => !r.role || r.role === UNMAPPED).length;
+  const unmapped = rows.filter((r) => !r.role || r.role === UNMAPPED);
+  const unmappedCount = unmapped.length;
+
+  // Бизнес-правило: нельзя сохранить разметку, пока есть несопоставленные
+  // подразделения. Показываем модалку со списком именно этих подразделений.
+  const handleSave = () => {
+    if (unmapped.length > 0) {
+      Modal.warning({
+        title: 'Роли не размечены',
+        width: 520,
+        content: (
+          <Table
+            size="small"
+            rowKey="department"
+            columns={[{ title: 'Подразделение', dataIndex: 'department' }]}
+            dataSource={unmapped}
+            pagination={{ pageSize: 8, hideOnSinglePage: true }}
+          />
+        ),
+      });
+      return;
+    }
+    saveMutation.mutate();
+  };
 
   const columns: TableColumnsType<MappingRow> = [
     { title: 'Подразделение', dataIndex: 'department', key: 'department' },
@@ -144,7 +167,7 @@ export function RoleMappingTab({ projectId }: { projectId: number }) {
         </Button>
         <Button
           type="primary"
-          onClick={() => saveMutation.mutate()}
+          onClick={handleSave}
           loading={saveMutation.isPending}
           disabled={rows.length === 0}
         >

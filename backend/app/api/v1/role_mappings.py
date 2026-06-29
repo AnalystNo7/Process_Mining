@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_project_owner_or_admin
-from app.core.exceptions import EntityNotFoundError
+from app.core.exceptions import BusinessRuleError, EntityNotFoundError
 from app.db.models.projects import Project
 from app.db.models.users import User
 from app.db.session import get_db
@@ -59,6 +59,8 @@ async def update_current(
         )
     except EntityNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except BusinessRuleError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     return RoleMappingResponse.model_validate(mapping)
 
 

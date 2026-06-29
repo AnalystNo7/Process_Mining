@@ -4,10 +4,14 @@ from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import EntityNotFoundError
+from app.core.exceptions import BusinessRuleError, EntityNotFoundError
 from app.db.models.projects import GlobalRoleTemplate, RoleMapping
 from app.db.models.users import User
-from app.domain.mining.role_mapping import UNMAPPED_ROLE, suggest_role_mapping
+from app.domain.mining.role_mapping import (
+    UNMAPPED_ROLE,
+    find_unmapped_departments,
+    suggest_role_mapping,
+)
 from app.schemas.role_mappings import SuggestionItem
 from app.services import audit_service
 
@@ -66,7 +70,15 @@ async def update_mapping(
     actor: User,
     request: Request | None = None,
 ) -> RoleMapping:
-    """Сохраняет маппинг как новую версию (старые версии не удаляются)."""
+    """Сохраняет маппинг как новую версию (старые версии не удаляются).
+
+    Бизнес-правило: нельзя сохранить, пока хотя бы одно подразделение не
+    сопоставлено роли (пусто или «Не размечено»)."""
+    unmapped = find_unmapped_departments(mapping)
+    if unmapped:
+        raise BusinessRuleError(
+            f"Роли не размечены: {len(unmapped)} подразделений"
+        )
     current = await get_current_mapping(db, project_id)
     new_version = RoleMapping(
         project_id=project_id,

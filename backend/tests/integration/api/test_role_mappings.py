@@ -41,6 +41,41 @@ async def test_put_creates_new_version(client, analyst_user) -> None:
     assert current.json()["mapping"]["Юридическое управление"] == "Юридическое управление"
 
 
+async def test_put_rejects_unmapped_departments(client, analyst_user) -> None:
+    """Бизнес-правило: нельзя сохранить разметку с несопоставленными
+    подразделениями (роль «Не размечено» или пустая)."""
+    project_id = await _create_project(client, analyst_user.headers)
+    # «Не размечено» — несопоставлено → 422.
+    resp = await client.put(
+        f"/api/v1/projects/{project_id}/role-mappings/current",
+        headers=analyst_user.headers,
+        json={
+            "mapping": {"Отдел А": "Согласующий", "Отдел Б": "Не размечено"},
+            "roles": ["Согласующий"],
+        },
+    )
+    assert resp.status_code == 422
+
+    # Пустая роль — тоже несопоставлено → 422.
+    resp_empty = await client.put(
+        f"/api/v1/projects/{project_id}/role-mappings/current",
+        headers=analyst_user.headers,
+        json={"mapping": {"Отдел А": ""}, "roles": []},
+    )
+    assert resp_empty.status_code == 422
+
+    # Все сопоставлены → 200.
+    ok = await client.put(
+        f"/api/v1/projects/{project_id}/role-mappings/current",
+        headers=analyst_user.headers,
+        json={
+            "mapping": {"Отдел А": "Согласующий", "Отдел Б": "Согласующий"},
+            "roles": ["Согласующий"],
+        },
+    )
+    assert ok.status_code == 200
+
+
 async def test_put_requires_owner_or_admin(client, analyst_user, admin_user) -> None:
     project_id = await _create_project(client, admin_user.headers)
     resp = await client.put(

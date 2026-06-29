@@ -7,6 +7,12 @@ import pandas as pd
 UNMAPPED_ROLE = "Не размечено"
 
 
+def find_unmapped_departments(mapping: dict[str, str]) -> list[str]:
+    """Подразделения без назначенной роли (пусто или UNMAPPED_ROLE).
+    Используется бизнес-правилом: разметку нельзя сохранить, пока такие есть."""
+    return sorted(d for d, role in mapping.items() if not role or role == UNMAPPED_ROLE)
+
+
 def suggest_role_mapping(
     departments: list[str], global_templates: list[dict[str, Any]]
 ) -> dict[str, tuple[str, str | None]]:
