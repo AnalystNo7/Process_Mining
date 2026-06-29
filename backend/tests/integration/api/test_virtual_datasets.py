@@ -112,6 +112,73 @@ async def test_create_vd_unknown_physical_dataset(client, analyst_user) -> None:
     assert resp.status_code == 404
 
 
+async def test_set_view_mode_persists(client, analyst_user, db_session) -> None:
+    project_id = await _create_project(client, analyst_user.headers)
+    physical = await _make_physical(db_session, project_id, analyst_user.id)
+    created = await client.post(
+        f"/api/v1/projects/{project_id}/virtual-datasets",
+        headers=analyst_user.headers,
+        json={"name": "VD-1", "physical_dataset_id": physical.id},
+    )
+    vd_id = created.json()["id"]
+
+    resp = await client.patch(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/view-mode",
+        headers=analyst_user.headers,
+        json={"activity_level": "role"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["config"]["activity_level"] == "role"
+
+    # GET подтверждает сохранение.
+    got = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}",
+        headers=analyst_user.headers,
+    )
+    assert got.json()["config"]["activity_level"] == "role"
+
+    # Невалидный режим → 422.
+    bad = await client.patch(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}/view-mode",
+        headers=analyst_user.headers,
+        json={"activity_level": "xxx"},
+    )
+    assert bad.status_code == 422
+
+
+async def test_apply_mapping_to_view(client, analyst_user, db_session) -> None:
+    project_id = await _create_project(client, analyst_user.headers)
+    physical = await _make_physical(db_session, project_id, analyst_user.id)
+    created = await client.post(
+        f"/api/v1/projects/{project_id}/virtual-datasets",
+        headers=analyst_user.headers,
+        json={"name": "VD-1", "physical_dataset_id": physical.id},
+    )
+    vd_id = created.json()["id"]
+
+    # Сохраняем разметку (версия 2) и применяем к отображению.
+    await client.put(
+        f"/api/v1/projects/{project_id}/role-mappings/current",
+        headers=analyst_user.headers,
+        json={"mapping": {"Отдел 0": "Согласующий"}, "roles": ["Согласующий"]},
+    )
+    applied = await client.post(
+        f"/api/v1/projects/{project_id}/virtual-datasets/apply-mapping-view",
+        headers=analyst_user.headers,
+    )
+    assert applied.status_code == 200
+    assert applied.json()["updated_virtual_datasets"] == 1
+
+    got = await client.get(
+        f"/api/v1/projects/{project_id}/virtual-datasets/{vd_id}",
+        headers=analyst_user.headers,
+    )
+    body = got.json()
+    assert body["config"]["activity_level"] == "role"
+    # Снимок обновлён на актуальную разметку (версия 2).
+    assert body["role_mapping_snapshot"]["mapping"] == {"Отдел 0": "Согласующий"}
+
+
 async def test_list_virtual_datasets(client, analyst_user, db_session) -> None:
     project_id = await _create_project(client, analyst_user.headers)
     physical = await _make_physical(db_session, project_id, analyst_user.id)

@@ -73,7 +73,7 @@ async def _get_vd(db: AsyncSession, project_id: int, vd_id: int) -> VirtualDatas
 async def rework_table(
     project_id: int,
     vd_id: int,
-    activity_level: ActivityLevel = "raw",
+    activity_level: ActivityLevel | None = None,
     limit: int = Query(default=50, ge=1, le=1000),
     filters: str | None = None,
     db: AsyncSession = Depends(get_db),
@@ -83,7 +83,9 @@ async def rework_table(
     df = await analytics_service.load_vd_dataframe(
         db, virtual, analytics_service.filter_from_query(filters)
     )
-    column = analytics_service.activity_column(activity_level)
+    column = analytics_service.activity_column(
+        analytics_service.resolve_activity_level(virtual, activity_level)
+    )
     rework_df = compute_rework_per_operation(df, column)
     items = [
         ReworkRow(
@@ -107,7 +109,7 @@ async def top_paths(
     project_id: int,
     vd_id: int,
     n: int = Query(default=5, ge=1, le=50),
-    activity_level: ActivityLevel = "raw",
+    activity_level: ActivityLevel | None = None,
     filters: str | None = None,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
@@ -116,7 +118,9 @@ async def top_paths(
     df = await analytics_service.load_vd_dataframe(
         db, virtual, analytics_service.filter_from_query(filters)
     )
-    column = analytics_service.activity_column(activity_level)
+    column = analytics_service.activity_column(
+        analytics_service.resolve_activity_level(virtual, activity_level)
+    )
     variants_df = get_top_n_variants(df, n=n, activity_col=column)
     coverage = get_variants_coverage(df, n=n, activity_col=column)
     return TopPathsResponse(
@@ -142,7 +146,7 @@ async def top_paths(
 async def dfg(
     project_id: int,
     vd_id: int,
-    activity_level: ActivityLevel = "raw",
+    activity_level: ActivityLevel | None = None,
     min_edge_frequency_pct: float = Query(default=0.0, ge=0, le=100),
     max_nodes: int = Query(default=60, ge=0, le=1000),
     filters: str | None = None,
@@ -153,7 +157,9 @@ async def dfg(
     df = await analytics_service.load_vd_dataframe(
         db, virtual, analytics_service.filter_from_query(filters)
     )
-    column = analytics_service.activity_column(activity_level)
+    column = analytics_service.activity_column(
+        analytics_service.resolve_activity_level(virtual, activity_level)
+    )
     graph = limit_dfg(
         filter_dfg(build_dfg(df, column), min_edge_frequency_pct), max_nodes
     )
@@ -192,7 +198,7 @@ async def process_map(
     vd_id: int,
     mode: Literal["top_paths", "frequency"] = "top_paths",
     n: int = Query(default=5, ge=1, le=50),
-    activity_level: ActivityLevel = "raw",
+    activity_level: ActivityLevel | None = None,
     min_edge_frequency_pct: float = Query(default=0.0, ge=0, le=100),
     max_nodes: int = Query(default=60, ge=0, le=1000),
     filters: str | None = None,
@@ -205,7 +211,9 @@ async def process_map(
     df = await analytics_service.load_vd_dataframe(
         db, virtual, analytics_service.filter_from_query(filters)
     )
-    column = analytics_service.activity_column(activity_level)
+    column = analytics_service.activity_column(
+        analytics_service.resolve_activity_level(virtual, activity_level)
+    )
     coverage = get_variants_coverage(df, n=n, activity_col=column)
 
     paths: list[PathRow] = []
@@ -269,7 +277,7 @@ async def process_map(
 async def operations(
     project_id: int,
     vd_id: int,
-    activity_level: ActivityLevel = "raw",
+    activity_level: ActivityLevel | None = None,
     filters: str | None = None,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
@@ -279,7 +287,9 @@ async def operations(
     df = await analytics_service.load_vd_dataframe(
         db, virtual, analytics_service.filter_from_query(filters)
     )
-    column = analytics_service.activity_column(activity_level)
+    column = analytics_service.activity_column(
+        analytics_service.resolve_activity_level(virtual, activity_level)
+    )
     summary = compute_operation_summary(df, column)
     return OperationsResponse(
         items=[
@@ -324,7 +334,7 @@ async def filter_options(
 async def export_bpmn(
     project_id: int,
     vd_id: int,
-    activity_level: ActivityLevel = "raw",
+    activity_level: ActivityLevel | None = None,
     min_edge_frequency_pct: float = Query(default=0.0, ge=0, le=100),
     filters: str | None = None,
     db: AsyncSession = Depends(get_db),
@@ -335,7 +345,9 @@ async def export_bpmn(
     df = await analytics_service.load_vd_dataframe(
         db, virtual, analytics_service.filter_from_query(filters)
     )
-    column = analytics_service.activity_column(activity_level)
+    column = analytics_service.activity_column(
+        analytics_service.resolve_activity_level(virtual, activity_level)
+    )
     graph = filter_dfg(build_dfg(df, column), min_edge_frequency_pct)
     project = await db.get(Project, virtual.project_id)
     process_name = project.name if project is not None else virtual.name

@@ -109,14 +109,22 @@ async def _kpi_card(
 ) -> dict[str, Any]:
     metric = config.get("metric", "total_cases")
     fmt = config.get("format", "number")
+    activity_level = config.get("activity_level", "raw")
+    activity_col = analytics_service.activity_column(activity_level)
     stats: dict[str, Any] | None = None
-    if event_filter is None and virtual.cached_stats:
+    # cached_stats считается по raw-операциям. В режиме разметки (role) и при
+    # фильтре пересчитываем на лету по нужной колонке операции.
+    if (
+        activity_level != "role"
+        and event_filter is None
+        and virtual.cached_stats
+    ):
         stats = virtual.cached_stats
         if metric not in stats:  # старый кэш не содержит новые KPI — пересчёт
             stats = None
     if stats is None:
         df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
-        stats = build_stats(df)
+        stats = build_stats(df, activity_col)
     value = stats.get(metric)
     return {"value": value, "formatted": format_value(value, fmt), "delta": None}
 
@@ -521,6 +529,9 @@ async def compute_widget_data(
     config = dict(widget.config or {})
     if widget.widget_type in _GRANULARITY_WIDGETS and "granularity" not in config:
         config["granularity"] = _dashboard_granularity(dashboard)
+    # Глобальный режим отображения операций уровня VD перекрывает per-widget
+    # activity_level: один переключатель управляет всеми виджетами (raw|role).
+    config["activity_level"] = (virtual.config or {}).get("activity_level", "raw")
     if overrides:
         config.update({k: v for k, v in overrides.items() if v is not None})
     return await handler(db, virtual, config, event_filter)

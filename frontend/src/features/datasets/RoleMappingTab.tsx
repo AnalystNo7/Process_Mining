@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Button,
   Empty,
+  Modal,
   Select,
   Space,
   Table,
@@ -13,6 +14,7 @@ import { AxiosError } from 'axios';
 import { useEffect, useState } from 'react';
 
 import { getCurrentMapping, suggestRoles, updateMapping } from '@/api/roleMappings';
+import { applyMappingToView } from '@/api/virtualDatasets';
 import { getErrorMessage, notifyError, notifySuccess } from '@/lib/notify';
 
 const UNMAPPED = 'Не размечено';
@@ -62,11 +64,34 @@ export function RoleMappingTab({ projectId }: { projectId: number }) {
     onError: (e) => notifyError(getErrorMessage(e)),
   });
 
+  const applyViewMutation = useMutation({
+    mutationFn: () => applyMappingToView(projectId),
+    onSuccess: (data) => {
+      notifySuccess(
+        `Разметка применена к отображению (${data.updated_virtual_datasets} датасетов). Дашборды перестроены.`,
+      );
+      void queryClient.invalidateQueries();
+    },
+    onError: (e) => notifyError(getErrorMessage(e)),
+  });
+
   const saveMutation = useMutation({
     mutationFn: () => updateMapping(projectId, { mapping: draft, roles: roleOptions }),
     onSuccess: () => {
       notifySuccess('Разметка ролей сохранена');
       void queryClient.invalidateQueries({ queryKey: ['role-mapping', projectId] });
+      // Бизнес-правило: предложить применить разметку к отображению —
+      // тогда операции переименуются по разметке и все дашборды перестроятся.
+      Modal.confirm({
+        title: 'Применить разметку к отображению?',
+        content:
+          'Операции будут показаны по разметке (переименованы по ролям), ' +
+          'и все дашборды и аналитика перестроятся. Это можно переключить ' +
+          'обратно в любой момент.',
+        okText: 'Применить',
+        cancelText: 'Позже',
+        onOk: () => applyViewMutation.mutateAsync(),
+      });
     },
     onError: (e) => notifyError(getErrorMessage(e)),
   });

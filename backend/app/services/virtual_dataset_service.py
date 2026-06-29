@@ -5,7 +5,11 @@ from fastapi import Request
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import EntityNotFoundError, PermissionDeniedError
+from app.core.exceptions import (
+    BusinessRuleError,
+    EntityNotFoundError,
+    PermissionDeniedError,
+)
 from app.db.models.datasets import PhysicalDataset, VirtualDataset
 from app.db.models.projects import SLARule
 from app.db.models.users import User
@@ -105,6 +109,75 @@ async def get_virtual_dataset(
     if virtual is None or virtual.project_id != project_id:
         raise EntityNotFoundError(f"Виртуальный датасет с id={vd_id} не найден")
     return virtual
+
+
+_ACTIVITY_LEVELS = ("raw", "role")
+
+
+async def set_view_mode(
+    db: AsyncSession,
+    project_id: int,
+    vd_id: int,
+    activity_level: str,
+    actor: User,
+    request: Request | None = None,
+) -> VirtualDataset:
+    """Глобальный режим отображения операций датасета: raw (как в физ. датасете)
+    или role (по разметке). Сохраняется в config; все дашборды и аналитика
+    перестраиваются под него."""
+    if activity_level not in _ACTIVITY_LEVELS:
+        raise BusinessRuleError(
+            f"Недопустимый режим '{activity_level}', ожидается raw|role"
+        )
+    virtual = await get_virtual_dataset(db, project_id, vd_id)
+    config = dict(virtual.config or {})
+    config["activity_level"] = activity_level
+    virtual.config = config
+    await audit_service.log_event(
+        db, actor, "virtual_dataset.set_view_mode", "virtual_dataset", vd_id,
+        request=request, metadata={"activity_level": activity_level},
+    )
+    await db.commit()
+    await db.refresh(virtual)
+    return virtual
+
+
+async def apply_mapping_to_view(
+    db: AsyncSession,
+    project_id: int,
+    actor: User,
+    request: Request | None = None,
+) -> int:
+    """Применяет текущую разметку ролей проекта к отображению: обновляет
+    role_mapping_snapshot всех виртуальных датасетов проекта на актуальную
+    разметку и включает им режим role. Raw cached_stats/case_paths не зависят
+    от разметки — пересчёт не требуется. Возвращает число обновлённых VD."""
+    mapping = await role_mapping_service.get_current_mapping(db, project_id)
+    snapshot = {
+        "version": mapping.version,
+        "mapping": mapping.mapping,
+        "roles": mapping.roles,
+    }
+    vds = list(
+        (
+            await db.scalars(
+                select(VirtualDataset).where(
+                    VirtualDataset.project_id == project_id
+                )
+            )
+        ).all()
+    )
+    for vd in vds:
+        vd.role_mapping_snapshot = snapshot
+        config = dict(vd.config or {})
+        config["activity_level"] = "role"
+        vd.config = config
+    await audit_service.log_event(
+        db, actor, "role_mapping.apply_to_view", "project", project_id,
+        request=request, metadata={"updated_virtual_datasets": len(vds)},
+    )
+    await db.commit()
+    return len(vds)
 
 
 async def list_virtual_datasets(

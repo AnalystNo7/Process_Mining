@@ -65,3 +65,30 @@ export async function deleteVirtualDataset(
 ): Promise<void> {
   await apiClient.delete(`/projects/${projectId}/virtual-datasets/${vdId}`);
 }
+
+export type ActivityLevel = 'raw' | 'role';
+
+/** Глобальный режим отображения операций датасета (raw — как в физ. датасете,
+ * role — по разметке). Перестраивает все дашборды и аналитику. */
+export async function setViewMode(
+  projectId: number,
+  vdId: number,
+  activity_level: ActivityLevel
+): Promise<VirtualDataset> {
+  const { data } = await apiClient.patch<VirtualDataset>(
+    `/projects/${projectId}/virtual-datasets/${vdId}/view-mode`,
+    { activity_level }
+  );
+  return data;
+}
+
+/** Применяет текущую разметку ролей ко всем датасетам проекта (после
+ * сохранения разметки): обновляет снимок и включает режим role. */
+export async function applyMappingToView(
+  projectId: number
+): Promise<{ updated_virtual_datasets: number }> {
+  const { data } = await apiClient.post<{ updated_virtual_datasets: number }>(
+    `/projects/${projectId}/virtual-datasets/apply-mapping-view`
+  );
+  return data;
+}

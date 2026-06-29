@@ -35,3 +35,12 @@ async def load_vd_dataframe(
 def activity_column(activity_level: str) -> str:
     """Имя колонки операции по уровню детализации (raw — сырое, role — с ролями)."""
     return "activity_with_role" if activity_level == "role" else "activity"
+
+
+def resolve_activity_level(virtual: VirtualDataset, requested: str | None) -> str:
+    """Эффективный режим операций: явный query-параметр (raw|role) перекрывает;
+    иначе — глобальный режим датасета из config.activity_level (дефолт raw)."""
+    if requested in ("raw", "role"):
+        return requested
+    level = (virtual.config or {}).get("activity_level", "raw")
+    return "role" if level == "role" else "raw"

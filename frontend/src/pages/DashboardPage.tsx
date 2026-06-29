@@ -26,7 +26,9 @@ import {
   DEFAULT_TAB_KEY,
 } from '@/features/dashboards/DashboardTabs';
 import { AddWidgetModal } from '@/features/widgets/AddWidgetModal';
+import { OperationViewModeToggle } from '@/features/widgets/OperationViewModeToggle';
 import { OverviewFilterPanel } from '@/features/widgets/OverviewFilterPanel';
+import type { ActivityLevel } from '@/api/virtualDatasets';
 import { getErrorMessage, notifyError, notifySuccess } from '@/lib/notify';
 
 export function DashboardPage() {
@@ -107,6 +109,15 @@ export function DashboardPage() {
         </div>
         <div className="page-head-actions">
           <Space>
+            {Number.isFinite(projectId) && Number.isFinite(vdId) ? (
+              <OperationViewModeToggle
+                projectId={projectId}
+                vdId={vdId}
+                value={
+                  ((vd?.config?.activity_level as ActivityLevel) ?? 'raw')
+                }
+              />
+            ) : null}
             <Button
               icon={editing ? <CheckOutlined /> : <EditOutlined />}
               type={editing ? 'primary' : 'default'}

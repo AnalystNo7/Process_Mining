@@ -25,8 +25,14 @@ def _safe_float(value: Any) -> float | None:
     return None if value is None or pd.isna(value) else float(value)
 
 
-def build_stats(df: pd.DataFrame) -> dict[str, Any]:
-    """Считает базовые KPI виртуального датасета (см. 01_DATA_MODEL.md)."""
+def build_stats(df: pd.DataFrame, activity_col: str = "activity") -> dict[str, Any]:
+    """Считает базовые KPI виртуального датасета (см. 01_DATA_MODEL.md).
+
+    `activity_col` — колонка операции: "activity" (raw) или "activity_with_role"
+    (режим разметки). Метрики, зависящие от состава/последовательности операций
+    (unique_activities, unique_traces, variability_pct, mean_occurrence_pct,
+    global_rework_pct), считаются по ней — в режиме разметки операций меньше.
+    """
     case_duration = compute_case_duration(df)
     comparison = compute_duration_comparison(df)
     has_rows = len(df) > 0
@@ -39,7 +45,7 @@ def build_stats(df: pd.DataFrame) -> dict[str, Any]:
     return {
         "total_cases": int(df["case_id"].nunique()) if has_rows else 0,
         "total_events": int(len(df)),
-        "unique_activities": int(df["activity"].nunique()) if has_rows else 0,
+        "unique_activities": int(df[activity_col].nunique()) if has_rows else 0,
         "unique_resources": int(df["resource"].nunique()) if has_rows else 0,
         "unique_departments": int(df["department"].nunique()) if has_rows else 0,
         "period_start": (
@@ -59,10 +65,12 @@ def build_stats(df: pd.DataFrame) -> dict[str, Any]:
         ],
         "cases_with_rework": comparison["n_cases_with_rework"],
         "cases_without_rework": comparison["n_cases_without_rework"],
-        "global_rework_pct": compute_global_rework_pct(df),
-        "unique_traces": int(get_case_traces(df).nunique()) if has_rows else 0,
-        "variability_pct": compute_variability_pct(df),
-        "mean_occurrence_pct": compute_mean_occurrence_pct(df),
+        "global_rework_pct": compute_global_rework_pct(df, activity_col),
+        "unique_traces": (
+            int(get_case_traces(df, activity_col).nunique()) if has_rows else 0
+        ),
+        "variability_pct": compute_variability_pct(df, activity_col),
+        "mean_occurrence_pct": compute_mean_occurrence_pct(df, activity_col),
         "computed_at": datetime.now(timezone.utc).isoformat(),
     }
 

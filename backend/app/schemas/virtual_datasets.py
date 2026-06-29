@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,6 +9,16 @@ class VirtualDatasetCreate(BaseModel):
     description: str | None = None
     physical_dataset_id: int
     config: dict[str, Any] = Field(default_factory=dict)
+
+
+class ViewModeUpdate(BaseModel):
+    """Глобальный режим отображения операций датасета."""
+
+    activity_level: Literal["raw", "role"]
+
+
+class ApplyMappingResponse(BaseModel):
+    updated_virtual_datasets: int
 
 
 class VirtualDatasetResponse(BaseModel):
