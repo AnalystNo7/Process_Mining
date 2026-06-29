@@ -60,14 +60,7 @@ export function AppSider({
   return (
     <aside className="sidebar">
       <div className="sb-brand">
-        <div className="sb-brand-cube" aria-hidden>
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M12 2 3 7v10l9 5 9-5V7l-9-5Zm0 2.3 6.8 3.78L12 11.85 5.2 8.08 12 4.3ZM5 9.7l6.25 3.47v6.96L5 16.66V9.7Zm14 0v6.96l-6.25 3.47v-6.96L19 9.7Z"
-              fill="#fff"
-            />
-          </svg>
-        </div>
+        <div className="sb-brand-logo" aria-hidden />
         <div className="sb-brand-text">
           <span className="sb-brand-title">Process Mining</span>
           <span className="sb-brand-sub">Аналитика процессов</span>

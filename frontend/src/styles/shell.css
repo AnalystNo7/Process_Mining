@@ -37,19 +37,25 @@
   margin-bottom: 12px;
 }
 
-.sb-brand-cube {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, .18);
-  display: grid;
-  place-items: center;
+/* Фирменный логотип через CSS-маску: красит силуэт /logo.svg в белый
+   (на синем сайдбаре). Файл логотипа — frontend/public/logo.svg. */
+.sb-brand-logo {
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
+  background-color: #fff;
+  -webkit-mask: url('/logo.svg') center / contain no-repeat;
+  mask: url('/logo.svg') center / contain no-repeat;
 }
 
-.sb-brand-cube svg {
-  width: 18px;
-  height: 18px;
+/* Логотип на странице входа: синий силуэт (--gpc-blue) на светлой карточке. */
+.login-brand-logo {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 12px;
+  background-color: var(--gpc-blue);
+  -webkit-mask: url('/logo.svg') center / contain no-repeat;
+  mask: url('/logo.svg') center / contain no-repeat;
 }
 
 .sb-brand-text {
