@@ -1,10 +1,15 @@
-import { DeleteOutlined, DragOutlined } from '@ant-design/icons';
+import {
+  DeleteOutlined,
+  DragOutlined,
+  QuestionCircleOutlined,
+} from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Card, Empty, Popconfirm, Spin } from 'antd';
+import { Button, Card, Empty, Popconfirm, Popover, Spin } from 'antd';
 
 import { getWidgetData, type Widget } from '@/api/dashboards';
 
 import { WidgetContent } from './WidgetContent';
+import { getWidgetHint } from './widgetHints';
 
 export function WidgetCard({
   widget,
@@ -23,6 +28,8 @@ export function WidgetCard({
     retry: 1,
   });
 
+  const hint = getWidgetHint(widget.widget_type, widget.config);
+
   return (
     <Card
       size="small"
@@ -40,6 +47,19 @@ export function WidgetCard({
         >
           {editing ? <DragOutlined style={{ color: 'var(--ink-4)' }} /> : null}
           {widget.title}
+          {hint ? (
+            <Popover
+              title={widget.title}
+              content={<div style={{ maxWidth: 320 }}>{hint}</div>}
+            >
+              <QuestionCircleOutlined
+                style={{ color: 'var(--ink-4)', cursor: 'help' }}
+                // Клик/перетаскивание иконки не должно запускать drag карточки.
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </Popover>
+          ) : null}
         </span>
       }
       style={{
