@@ -1,5 +1,5 @@
 import { Empty, Tabs } from 'antd';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import GridLayout, { type Layout } from 'react-grid-layout';
 
 import type { EventFilter } from '@/api/analytics';
@@ -198,6 +198,12 @@ function TabGrid({
   const [gridWidth, setGridWidth] = useState(1200);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const flushTimer = useRef<number | null>(null);
+  // Адаптивная высота ячеек (виджеты длительности): widgetId → строк сетки.
+  // Не персистится в БД — пересчитывается из данных при каждом показе.
+  const [autoHeights, setAutoHeights] = useState<Record<number, number>>({});
+  const handleAutoHeight = useCallback((id: number, rows: number) => {
+    setAutoHeights((prev) => (prev[id] === rows ? prev : { ...prev, [id]: rows }));
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -232,11 +238,12 @@ function TabGrid({
         x: w.grid_x,
         y: w.grid_y,
         w: w.grid_width,
-        h: w.grid_height,
+        // Адаптивные виджеты длительности растут под число операций.
+        h: autoHeights[w.id] ?? w.grid_height,
         minW: 2,
         minH: 2,
       })),
-    [tabWidgets],
+    [tabWidgets, autoHeights],
   );
 
   const handleLayoutChange = (next: Layout[]) => {
@@ -277,7 +284,12 @@ function TabGrid({
         >
           {tabWidgets.map((widget) => (
             <div key={String(widget.id)}>
-              <WidgetCard widget={widget} onDelete={onDeleteWidget} editing={editing} />
+              <WidgetCard
+                widget={widget}
+                onDelete={onDeleteWidget}
+                editing={editing}
+                onAutoHeight={handleAutoHeight}
+              />
             </div>
           ))}
         </GridLayout>

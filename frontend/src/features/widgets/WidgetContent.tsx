@@ -11,6 +11,8 @@ import {
   TWO_STATE_SORT_DIRECTIONS,
 } from '@/lib/table';
 
+import { durationPlotHeight } from './durationLayout';
+
 /**
  * T49: общий конфиг пагинации для табличных виджетов дашборда.
  * Селектор «20 / 50 / 100 / 500» строк, автоскрытие на одной странице.
@@ -47,6 +49,19 @@ const PLOT_BOX_STYLE: React.CSSProperties = {
 
 function PlotBox({ children }: { children: React.ReactNode }) {
   return <div style={PLOT_BOX_STYLE}>{children}</div>;
+}
+
+// Блок фиксированной (адаптивной) высоты для виджетов длительности: график
+// получает явную высоту под число операций; при превышении карточки тело
+// карточки (overflow:auto) скроллит. flexShrink:0 — не даём flex сжать его.
+function TallPlotBox({
+  height,
+  children,
+}: {
+  height: number;
+  children: React.ReactNode;
+}) {
+  return <div style={{ width: '100%', height, flexShrink: 0 }}>{children}</div>;
 }
 
 /** Обрезает длинную подпись до max символов с многоточием. Полное имя
@@ -602,10 +617,13 @@ function OperationDurationsBoxplot({
   // Нативный hover ящика и сырые точки-выбросы отключены (boxpoints:false,
   // hoverinfo:skip), т.к. Plotly показал бы значения как «300к» секунд.
   // Вместо них — два scatter-слоя ниже с подсказками в д/ч/м/с.
+  // Горизонтальная ориентация: операции по оси Y, длительность по X — при
+  // многих операциях карточка растёт в высоту, имена не налезают.
   const boxTraces = data.traces.map((tr) => ({
     type: 'box',
     name: tr.name,
-    y: tr.y,
+    x: tr.y,
+    orientation: 'h',
     boxmean: true,
     boxpoints: false,
     hoverinfo: 'skip',
@@ -616,9 +634,9 @@ function OperationDurationsBoxplot({
   const summaryTrace = {
     type: 'scatter',
     mode: 'markers',
-    x: data.traces.map((tr) => tr.name),
-    y: data.traces.map((tr) => tr.median),
-    marker: { color: '#1677ff', size: 12, symbol: 'line-ew-open' },
+    x: data.traces.map((tr) => tr.median),
+    y: data.traces.map((tr) => tr.name),
+    marker: { color: '#1677ff', size: 12, symbol: 'line-ns-open' },
     customdata: data.traces.map((tr) => [
       formatDuration(tr.median),
       formatDuration(tr.mean),
@@ -629,15 +647,16 @@ function OperationDurationsBoxplot({
       tr.n,
     ]),
     hovertemplate:
-      '%{x}<br>медиана: %{customdata[0]}<br>среднее: %{customdata[1]}' +
+      '%{y}<br>медиана: %{customdata[0]}<br>среднее: %{customdata[1]}' +
       '<br>Q1–Q3: %{customdata[2]} – %{customdata[3]}' +
       '<br>мин–макс: %{customdata[4]} – %{customdata[5]}' +
       '<br>событий: %{customdata[6]}<extra></extra>',
     showlegend: false,
   };
   // Слой выбросов: точки за оградой [q1−1.5·IQR, q3+1.5·IQR], hover в д/ч/м/с.
-  const outX: string[] = [];
-  const outY: number[] = [];
+  // Горизонтально: x = значение, y = имя операции.
+  const outX: number[] = [];
+  const outY: string[] = [];
   const outText: string[] = [];
   data.traces.forEach((tr) => {
     const iqr = tr.q3 - tr.q1;
@@ -645,8 +664,8 @@ function OperationDurationsBoxplot({
     const hi = tr.q3 + 1.5 * iqr;
     tr.y.forEach((v) => {
       if (v < lo || v > hi) {
-        outX.push(tr.name);
-        outY.push(v);
+        outX.push(v);
+        outY.push(tr.name);
         outText.push(formatDuration(v));
       }
     });
@@ -663,33 +682,35 @@ function OperationDurationsBoxplot({
   };
   const traces = [...boxTraces, summaryTrace, outlierTrace];
   const names = data.traces.map((tr) => tr.name);
-  const maxY = Math.max(
+  const maxVal = Math.max(
     1,
     ...data.traces.flatMap((tr) => (tr.y.length ? tr.y : [0])),
   );
-  const yTicks = durationTicks(maxY);
+  const xTicks = durationTicks(maxVal);
   const layout: Partial<Layout> = {
     ...BASE_LAYOUT,
-    margin: { l: 72, r: 16, t: 16, b: 120 },
+    margin: { l: 200, r: 16, t: 16, b: 48 },
     showlegend: false,
-    yaxis: {
+    // Ось длительности — снизу (X); операции — слева (Y).
+    xaxis: {
       title: { text: 'Длительность' },
       tickmode: 'array',
-      tickvals: yTicks.tickvals,
-      ticktext: yTicks.ticktext,
+      tickvals: xTicks.tickvals,
+      ticktext: xTicks.ticktext,
     },
-    // Полное имя операции остаётся в name (видно в hover), подпись по оси
-    // обрезается, чтобы длинные названия не налезали друг на друга.
-    xaxis: {
+    // Полное имя операции остаётся в name (видно в hover), подпись слева
+    // обрезается, чтобы длинные названия помещались.
+    yaxis: {
       tickmode: 'array',
       tickvals: names,
-      ticktext: names.map((n) => truncateLabel(n, 24)),
-      tickangle: -30,
+      ticktext: names.map((n) => truncateLabel(n, 28)),
       automargin: true,
     },
   };
   return (
-    <PlotBox>
+    <TallPlotBox
+      height={durationPlotHeight('operation_durations_boxplot', names.length)}
+    >
       <Plot
         data={traces as Data[]}
         layout={layout}
@@ -697,7 +718,7 @@ function OperationDurationsBoxplot({
         config={PLOT_CONFIG}
         useResizeHandler
       />
-    </PlotBox>
+    </TallPlotBox>
   );
 }
 
@@ -823,7 +844,9 @@ function DurationBottleneckHeatmap({
   const mx = Math.max(...vals);
   const tickvals = [0, 1, 2, 3].map((i) => mn + ((mx - mn) * i) / 3);
   return (
-    <PlotBox>
+    <TallPlotBox
+      height={durationPlotHeight('duration_bottleneck_heatmap', ys.length)}
+    >
       <Plot
         data={
           [
@@ -865,7 +888,7 @@ function DurationBottleneckHeatmap({
         config={PLOT_CONFIG}
         useResizeHandler
       />
-    </PlotBox>
+    </TallPlotBox>
   );
 }
 
@@ -881,51 +904,54 @@ function SojournVsOwn({ data }: { data: { rows: SojournRow[] } }) {
     return <Empty description="Нет данных для построения" />;
   }
   const activities = data.rows.map((r) => r.activity);
+  // Горизонтальная ориентация: операции по Y, длительность по X — при многих
+  // операциях карточка растёт в высоту, имена не налезают.
   const work = {
-    x: activities,
-    y: data.rows.map((r) => r.work_seconds),
+    y: activities,
+    x: data.rows.map((r) => r.work_seconds),
     name: 'Работа',
     type: 'bar',
+    orientation: 'h',
     marker: { color: '#1677ff' },
     customdata: data.rows.map((r) => formatDuration(r.work_seconds)),
-    hovertemplate: '%{x}<br>Работа: %{customdata}<extra></extra>',
+    hovertemplate: '%{y}<br>Работа: %{customdata}<extra></extra>',
   };
   const wait = {
-    x: activities,
-    y: data.rows.map((r) => r.wait_seconds),
+    y: activities,
+    x: data.rows.map((r) => r.wait_seconds),
     name: 'Ожидание',
     type: 'bar',
+    orientation: 'h',
     marker: { color: '#fa8c16' },
     customdata: data.rows.map((r) => formatDuration(r.wait_seconds)),
-    hovertemplate: '%{x}<br>Ожидание: %{customdata}<extra></extra>',
+    hovertemplate: '%{y}<br>Ожидание: %{customdata}<extra></extra>',
   };
   const maxTotal = Math.max(
     1,
     ...data.rows.map((r) => r.work_seconds + r.wait_seconds),
   );
-  const yTicks = durationTicks(maxTotal);
+  const xTicks = durationTicks(maxTotal);
   return (
-    <PlotBox>
+    <TallPlotBox height={durationPlotHeight('sojourn_vs_own', activities.length)}>
       <Plot
         data={[work, wait] as Data[]}
         layout={{
           ...BASE_LAYOUT,
-          margin: { l: 72, r: 16, t: 16, b: 120 },
+          margin: { l: 200, r: 16, t: 16, b: 48 },
           barmode: 'stack',
           showlegend: true,
           legend: { orientation: 'h' },
-          yaxis: {
+          xaxis: {
             title: { text: 'Длительность' },
             tickmode: 'array',
-            tickvals: yTicks.tickvals,
-            ticktext: yTicks.ticktext,
+            tickvals: xTicks.tickvals,
+            ticktext: xTicks.ticktext,
           },
-          // Полное имя — в hovertemplate, подпись по оси обрезается.
-          xaxis: {
+          // Полное имя — в hovertemplate, подпись слева обрезается.
+          yaxis: {
             tickmode: 'array',
             tickvals: activities,
-            ticktext: activities.map((n) => truncateLabel(n, 24)),
-            tickangle: -30,
+            ticktext: activities.map((n) => truncateLabel(n, 28)),
             automargin: true,
           },
         }}
@@ -933,7 +959,7 @@ function SojournVsOwn({ data }: { data: { rows: SojournRow[] } }) {
         config={PLOT_CONFIG}
         useResizeHandler
       />
-    </PlotBox>
+    </TallPlotBox>
   );
 }
 

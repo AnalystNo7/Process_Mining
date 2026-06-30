@@ -14,11 +14,15 @@ import {
   Select,
   Spin,
 } from 'antd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { getWidgetData, updateWidget, type Widget } from '@/api/dashboards';
 import { getErrorMessage, notifyError } from '@/lib/notify';
 
+import {
+  DURATION_ADAPTIVE_TYPES,
+  durationGridRows,
+} from './durationLayout';
 import { WidgetContent } from './WidgetContent';
 import { getWidgetHint } from './widgetHints';
 
@@ -57,10 +61,13 @@ export function WidgetCard({
   widget,
   onDelete,
   editing = false,
+  onAutoHeight,
 }: {
   widget: Widget;
   onDelete: (id: number) => void;
   editing?: boolean;
+  /** Сообщает родителю желаемую высоту ячейки (строк сетки) под число операций. */
+  onAutoHeight?: (widgetId: number, rows: number) => void;
 }) {
   const queryClient = useQueryClient();
   const hasControls = DURATION_CONTROL_TYPES.has(widget.widget_type);
@@ -136,6 +143,31 @@ export function WidgetCard({
     // покажем Empty с сообщением, чтобы пользователь не сидел на <Spin />.
     retry: 1,
   });
+
+  // Адаптивная высота карточки под число операций (виджеты длительности):
+  // считаем nOps из данных и сообщаем родителю желаемую высоту ячейки сетки.
+  const isAdaptive = DURATION_ADAPTIVE_TYPES.has(widget.widget_type);
+  useEffect(() => {
+    if (!isAdaptive || !onAutoHeight || !data) return;
+    const d = data as {
+      y_categories?: unknown[];
+      traces?: unknown[];
+      rows?: unknown[];
+    };
+    const nOps =
+      d.y_categories?.length ?? d.traces?.length ?? d.rows?.length ?? 0;
+    onAutoHeight(
+      widget.id,
+      durationGridRows(widget.widget_type, nOps, widget.grid_height),
+    );
+  }, [
+    data,
+    isAdaptive,
+    onAutoHeight,
+    widget.id,
+    widget.widget_type,
+    widget.grid_height,
+  ]);
 
   const hint = getWidgetHint(widget.widget_type, widget.config);
 
