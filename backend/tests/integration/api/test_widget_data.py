@@ -345,6 +345,27 @@ async def test_case_duration_cdf_widget_data(
     assert data["pct_within_sla"] == 100.0
 
 
+async def test_case_duration_cdf_sla_editable(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    """Ручное изменение SLA в config виджета меняет линию SLA на графике CDF."""
+    _, widgets = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    cdf = next(w for w in widgets if w["widget_type"] == "case_duration_cdf")
+    patch = await client.patch(
+        f"/api/v1/widgets/{cdf['id']}",
+        json={"config": {"sla_target_hours": 48}},
+        headers=analyst_user.headers,
+    )
+    assert patch.status_code == 200
+    resp = await client.get(
+        f"/api/v1/widgets/{cdf['id']}/data", headers=analyst_user.headers
+    )
+    assert resp.status_code == 200
+    assert resp.json()["sla_target_seconds"] == 48 * 3600
+
+
 async def test_duration_bottleneck_heatmap_widget_data(
     client, analyst_user, db_session, tmp_path
 ) -> None:

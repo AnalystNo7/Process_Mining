@@ -24,7 +24,7 @@ export const WIDGET_TYPES: WidgetTypeOption[] = [
     value: 'operation_durations_boxplot',
     label: 'Длительность операций (ящик с усами)',
   },
-  { value: 'case_duration_cdf', label: 'Кривая длительности кейсов (SLA)' },
+  { value: 'case_duration_cdf', label: 'Кривая длительности кейсов' },
   {
     value: 'duration_bottleneck_heatmap',
     label: 'Узкие места: длительность по операциям',

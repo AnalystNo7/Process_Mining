@@ -113,7 +113,7 @@ _PROCESS_WIDGETS: list[dict[str, Any]] = [
     # Комбо-длительность: CDF длительности кейсов с линией SLA, теплокарта
     # узких мест (операция × департамент, медиана) и работа/ожидание.
     {"widget_type": "case_duration_cdf",
-     "title": "Кривая длительности кейсов (SLA)",
+     "title": "Кривая длительности кейсов",
      "tab": "process.duration",
      "config": {"sla_target_hours": 24},
      "grid_x": 0, "grid_y": 6, "grid_width": 12, "grid_height": 6},

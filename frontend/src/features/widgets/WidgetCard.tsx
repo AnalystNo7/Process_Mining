@@ -3,11 +3,21 @@ import {
   DragOutlined,
   QuestionCircleOutlined,
 } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
-import { Button, Card, Empty, Popconfirm, Popover, Select, Spin } from 'antd';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Button,
+  Card,
+  Empty,
+  InputNumber,
+  Popconfirm,
+  Popover,
+  Select,
+  Spin,
+} from 'antd';
 import { useState } from 'react';
 
-import { getWidgetData, type Widget } from '@/api/dashboards';
+import { getWidgetData, updateWidget, type Widget } from '@/api/dashboards';
+import { getErrorMessage, notifyError } from '@/lib/notify';
 
 import { WidgetContent } from './WidgetContent';
 import { getWidgetHint } from './widgetHints';
@@ -45,8 +55,39 @@ export function WidgetCard({
   onDelete: (id: number) => void;
   editing?: boolean;
 }) {
+  const queryClient = useQueryClient();
   const hasControls = DURATION_CONTROL_TYPES.has(widget.widget_type);
   const isHeatmap = widget.widget_type === 'duration_bottleneck_heatmap';
+  // CDF длительности кейсов: цель SLA (часы) редактируется прямо в шапке
+  // карточки и сохраняется в config виджета (линия SLA на графике следует
+  // за этим значением).
+  const isCdf = widget.widget_type === 'case_duration_cdf';
+  const defaultSlaHours =
+    typeof widget.config.sla_target_hours === 'number'
+      ? widget.config.sla_target_hours
+      : 24;
+  const [slaHours, setSlaHours] = useState<number>(defaultSlaHours);
+
+  const slaMutation = useMutation({
+    mutationFn: (hours: number) =>
+      updateWidget(widget.id, {
+        config: { ...widget.config, sla_target_hours: hours },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['widget-data', widget.id] });
+      void queryClient.invalidateQueries({
+        queryKey: ['dashboard', widget.dashboard_id],
+      });
+    },
+    onError: (error) => notifyError(getErrorMessage(error)),
+  });
+
+  // Сохраняем SLA только если значение изменилось (по blur/Enter, не на ввод).
+  const commitSla = () => {
+    if (slaHours != null && slaHours !== defaultSlaHours) {
+      slaMutation.mutate(slaHours);
+    }
+  };
   // Дефолты меню берём из config виджета (топ-N и ранжирование). Для боксплота
   // и sojourn ранжирование по умолчанию — по частоте; у теплокарт — из config.
   const defaultLimit =
@@ -123,8 +164,27 @@ export function WidgetCard({
         },
       }}
       extra={
-        hasControls || editing ? (
+        isCdf || hasControls || editing ? (
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {isCdf ? (
+              <span
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                // Клик/ввод в поле не должен запускать перетаскивание карточки.
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <span style={{ fontSize: 12, color: 'var(--ink-4)' }}>SLA</span>
+                <InputNumber
+                  size="small"
+                  min={0}
+                  addonAfter="ч"
+                  style={{ width: 110 }}
+                  value={slaHours}
+                  onChange={(value) => setSlaHours(value ?? 0)}
+                  onBlur={commitSla}
+                  onPressEnter={commitSla}
+                />
+              </span>
+            ) : null}
             {hasControls ? (
               <>
                 <Select
