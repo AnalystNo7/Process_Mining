@@ -475,68 +475,66 @@ export function ProcessGraphTab({
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 16, marginTop: 16, alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <Card size="small" title="Операции">
-              <Table
-                size="small"
-                rowKey="activity"
-                dataSource={operations}
-                columns={operationColumns}
-                loading={operationsQuery.isLoading}
-                sortDirections={TWO_STATE_SORT_DIRECTIONS}
-                pagination={{
-                  defaultPageSize: DEFAULT_PAGE_SIZE,
-                  showSizeChanger: true,
-                  pageSizeOptions: TABLE_PAGE_SIZE_OPTIONS_STR,
-                  hideOnSinglePage: true,
-                }}
-                scroll={{ x: true }}
-              />
-              <Typography.Paragraph
-                type="secondary"
-                style={{ fontSize: 11, marginTop: 8, marginBottom: 0 }}
-              >
-                t (avg) — средняя длительность операции; t (median) — медианная
-                длительность; ср. доля в t экземпляра — средняя доля операции в
-                длительности кейса.
-              </Typography.Paragraph>
-            </Card>
-          </div>
+        <Card size="small" title="Операции" style={{ marginTop: 16 }}>
+          <Table
+            size="small"
+            rowKey="activity"
+            dataSource={operations}
+            columns={operationColumns}
+            loading={operationsQuery.isLoading}
+            sortDirections={TWO_STATE_SORT_DIRECTIONS}
+            pagination={{
+              defaultPageSize: DEFAULT_PAGE_SIZE,
+              showSizeChanger: true,
+              pageSizeOptions: TABLE_PAGE_SIZE_OPTIONS_STR,
+              hideOnSinglePage: true,
+            }}
+            scroll={{ x: true }}
+          />
+          <Typography.Paragraph
+            type="secondary"
+            style={{ fontSize: 11, marginTop: 8, marginBottom: 0 }}
+          >
+            t (avg) — средняя длительность операции; t (median) — медианная
+            длительность; ср. доля в t экземпляра — средняя доля операции в
+            длительности кейса.
+          </Typography.Paragraph>
+        </Card>
 
-          <div style={{ width: 480, flexShrink: 0 }}>
-            <Card size="small" title="Динамика появления экземпляров">
-              {dynamicsQuery.isLoading ? (
-                <div style={{ textAlign: 'center', padding: 48 }}>
-                  <Spin />
-                </div>
-              ) : dynamics.length === 0 ? (
-                <Empty description="Нет данных" />
-              ) : (
-                <Plot
-                  data={[
-                    {
-                      type: 'bar',
-                      x: dynamics.map((row) => row.month),
-                      y: dynamics.map((row) => row.n_cases),
-                      marker: { color: '#1677ff' },
-                      name: 'Кол-во экземпляров',
-                    },
-                  ]}
-                  layout={{
-                    height: 320,
-                    margin: { l: 40, r: 16, t: 16, b: 40 },
-                    xaxis: { title: { text: 'Дата начала экземпляра' } },
-                    yaxis: { title: { text: 'Кол-во экземпляров' } },
-                  }}
-                  config={{ displaylogo: false, responsive: true }}
-                  style={{ width: '100%' }}
-                  useResizeHandler
-                />
-              )}
-            </Card>
-          </div>
-        </div>
+        <Card
+          size="small"
+          title="Динамика появления экземпляров"
+          style={{ marginTop: 16 }}
+        >
+          {dynamicsQuery.isLoading ? (
+            <div style={{ textAlign: 'center', padding: 48 }}>
+              <Spin />
+            </div>
+          ) : dynamics.length === 0 ? (
+            <Empty description="Нет данных" />
+          ) : (
+            <Plot
+              data={[
+                {
+                  type: 'bar',
+                  x: dynamics.map((row) => row.month),
+                  y: dynamics.map((row) => row.n_cases),
+                  marker: { color: '#1677ff' },
+                  name: 'Кол-во экземпляров',
+                },
+              ]}
+              layout={{
+                height: 400,
+                margin: { l: 40, r: 16, t: 16, b: 40 },
+                xaxis: { title: { text: 'Дата начала экземпляра' } },
+                yaxis: { title: { text: 'Кол-во экземпляров' } },
+              }}
+              config={{ displaylogo: false, responsive: true }}
+              style={{ width: '100%' }}
+              useResizeHandler
+            />
+          )}
+        </Card>
       </div>
     </div>
   );
