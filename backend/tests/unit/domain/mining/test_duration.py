@@ -301,6 +301,18 @@ def test_bottleneck_heatmap_resource_dimension_label() -> None:
     assert result["cells"][0]["value"] == 7.0
 
 
+def test_bottleneck_heatmap_col_limit_keeps_busiest_columns() -> None:
+    # D1 — 3 события, D2 — 2, D3 — 1; col_limit=2 → оставляем два самых частых.
+    df = _df(
+        [{"activity": "A", "department": "D1", "own_duration_sec": 1.0}] * 3
+        + [{"activity": "A", "department": "D2", "own_duration_sec": 1.0}] * 2
+        + [{"activity": "A", "department": "D3", "own_duration_sec": 1.0}]
+    )
+    result = compute_duration_bottleneck_heatmap(df, col_limit=2)
+    assert result["x_categories"] == ["D1", "D2"]  # по алфавиту, D3 отброшен
+    assert {c["x"] for c in result["cells"]} == {"D1", "D2"}
+
+
 # Комбо-длительность №3: работа vs ожидание.
 
 

@@ -187,6 +187,7 @@ def compute_duration_bottleneck_heatmap(
     limit: int = 10,
     sort_by: str = "duration",
     stat: str = "median",
+    col_limit: int = 10,
 ) -> dict[str, Any]:
     """Комбо-длительность №2: теплокарта узких мест.
 
@@ -202,8 +203,11 @@ def compute_duration_bottleneck_heatmap(
     Показываются только топ-`limit` операций, ранжированных по `sort_by`:
     - "duration" — по выбранной статистике `stat` (самые долгие операции);
     - "frequency" — по числу событий (самые частые операции).
-    Операции возвращаются в `y_categories` в порядке ранга (первая — топ-1),
-    разрезы — в `x_categories` (по алфавиту).
+    Операции возвращаются в `y_categories` в порядке ранга (первая — топ-1).
+
+    Столбцы (разрезы) ограничены `col_limit`: оставляем самые «нагруженные»
+    разрезы по числу событий среди топ-операций (иначе при многих департаментах
+    подписи по оси X не читаются). Возвращаются в `x_categories` по алфавиту.
 
     Пустой df / нет нужных колонок → cells/categories пустые.
     """
@@ -240,6 +244,13 @@ def compute_duration_bottleneck_heatmap(
     top_activities = [str(a) for a in ranked.head(limit).index]
 
     sub = work[work[activity_col].astype(str).isin(top_activities)]
+    # Ограничиваем число столбцов: самые частые разрезы среди топ-операций
+    # (по числу событий) — чтобы ось X не переполнялась и подписи читались.
+    col_counts = (
+        sub.groupby(dimension_col).size().sort_values(ascending=False)
+    )
+    top_dims = [str(d) for d in col_counts.head(col_limit).index]
+    sub = sub[sub[dimension_col].astype(str).isin(top_dims)]
     grouped = sub.groupby([activity_col, dimension_col])["own_duration_sec"].agg(
         ["median", "mean", "size"]
     )

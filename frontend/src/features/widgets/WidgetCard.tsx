@@ -46,6 +46,13 @@ const STAT_OPTIONS = [
   { value: 'mean', label: 'Среднее' },
 ];
 
+// Теплокарта узких мест: число столбцов (разрезов) по оси X — иначе при многих
+// департаментах/исполнителях подписи снизу не читаются.
+const COL_N_OPTIONS = [5, 10, 15, 20, 30].map((value) => ({
+  value,
+  label: `Столбцов: ${value}`,
+}));
+
 export function WidgetCard({
   widget,
   onDelete,
@@ -96,19 +103,33 @@ export function WidgetCard({
     typeof widget.config.sort_by === 'string' ? widget.config.sort_by : 'frequency';
   const defaultStat =
     typeof widget.config.stat === 'string' ? widget.config.stat : 'median';
+  const defaultColLimit =
+    typeof widget.config.col_limit === 'number' ? widget.config.col_limit : 10;
   const [limit, setLimit] = useState<number>(defaultLimit);
   const [sortBy, setSortBy] = useState<string>(defaultSortBy);
   const [stat, setStat] = useState<string>(defaultStat);
+  const [colLimit, setColLimit] = useState<number>(defaultColLimit);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: hasControls
-      ? ['widget-data', widget.id, limit, sortBy, isHeatmap ? stat : null]
+      ? [
+          'widget-data',
+          widget.id,
+          limit,
+          sortBy,
+          isHeatmap ? stat : null,
+          isHeatmap ? colLimit : null,
+        ]
       : ['widget-data', widget.id],
     queryFn: () =>
       getWidgetData(
         widget.id,
         hasControls
-          ? { limit, sort_by: sortBy, ...(isHeatmap ? { stat } : {}) }
+          ? {
+              limit,
+              sort_by: sortBy,
+              ...(isHeatmap ? { stat, col_limit: colLimit } : {}),
+            }
           : undefined,
       ),
     // T43.1: при ошибке (таймаут, 500) не ретраим бесконечно — сразу
@@ -202,13 +223,22 @@ export function WidgetCard({
                   style={{ width: 150 }}
                 />
                 {isHeatmap ? (
-                  <Select
-                    size="small"
-                    value={stat}
-                    onChange={setStat}
-                    options={STAT_OPTIONS}
-                    style={{ width: 110 }}
-                  />
+                  <>
+                    <Select
+                      size="small"
+                      value={stat}
+                      onChange={setStat}
+                      options={STAT_OPTIONS}
+                      style={{ width: 110 }}
+                    />
+                    <Select
+                      size="small"
+                      value={colLimit}
+                      onChange={setColLimit}
+                      options={COL_N_OPTIONS}
+                      style={{ width: 130 }}
+                    />
+                  </>
                 ) : null}
               </>
             ) : null}

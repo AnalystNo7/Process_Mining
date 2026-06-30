@@ -450,7 +450,8 @@ async def _duration_bottleneck_heatmap(
     if stat not in ("median", "mean"):
         stat = "median"
     return compute_duration_bottleneck_heatmap(
-        df, column, dimension, int(config.get("limit", 10)), sort_by, stat
+        df, column, dimension, int(config.get("limit", 10)), sort_by, stat,
+        int(config.get("col_limit", 10)),
     )
 
 
