@@ -30,7 +30,7 @@ export const STANDARD_PM_TABS: TopTabDef[] = [
     key: 'process',
     label: 'Процесс',
     subtabs: [
-      { key: 'process.process', label: 'Процесс', hasProcessGraph: true },
+      { key: 'process.process', label: 'Пути и граф', hasProcessGraph: true },
       { key: 'process.duration', label: 'Длительность', hasProcessGraph: true },
       { key: 'process.rework', label: 'Зацикленность', hasProcessGraph: true },
       { key: 'process.paths', label: 'Метрики путей' },
