@@ -873,7 +873,7 @@ function DurationBottleneckHeatmap({
             tickmode: 'array',
             tickvals: xs,
             ticktext: xs.map((s) => truncateLabel(s, 28)),
-            tickangle: -90,
+            tickangle: -45,
             automargin: true,
           },
           yaxis: {
