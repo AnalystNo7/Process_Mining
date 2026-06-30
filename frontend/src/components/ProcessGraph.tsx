@@ -283,23 +283,23 @@ export function ProcessGraph({
       <Tooltip title="Отдалить">
         <Button size="small" icon={<ZoomOutOutlined />} onClick={() => zoomBy(0.8)} />
       </Tooltip>
-      <Button
-        size="small"
-        icon={<CompressOutlined />}
-        onClick={() => cyRef.current && smartFit(cyRef.current)}
-      >
-        Вписать
-      </Button>
-      <Button
-        size="small"
-        icon={expanded ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
-        onClick={() => setExpanded((v) => !v)}
-      >
-        {expanded ? 'Свернуть' : 'На весь экран'}
-      </Button>
-      <Button size="small" icon={<DownloadOutlined />} onClick={exportPng}>
-        PNG
-      </Button>
+      <Tooltip title="Вписать">
+        <Button
+          size="small"
+          icon={<CompressOutlined />}
+          onClick={() => cyRef.current && smartFit(cyRef.current)}
+        />
+      </Tooltip>
+      <Tooltip title={expanded ? 'Свернуть' : 'На весь экран'}>
+        <Button
+          size="small"
+          icon={expanded ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+          onClick={() => setExpanded((v) => !v)}
+        />
+      </Tooltip>
+      <Tooltip title="Скачать PNG">
+        <Button size="small" icon={<DownloadOutlined />} onClick={exportPng} />
+      </Tooltip>
     </Space>
   );
 
