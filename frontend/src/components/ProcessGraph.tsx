@@ -1,12 +1,33 @@
-import { DownloadOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
+import {
+  CompressOutlined,
+  DownloadOutlined,
+  FullscreenExitOutlined,
+  FullscreenOutlined,
+  ZoomInOutlined,
+  ZoomOutOutlined,
+} from '@ant-design/icons';
+import { Button, Space, Tooltip } from 'antd';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
-import { useEffect, useMemo, useRef } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { CytoscapeElement } from '@/api/analytics';
 
 cytoscape.use(dagre);
+
+// Ниже этого масштаба «вписать» не опускается — крупные графы остаются
+// читаемыми (пользователь панорамирует/зумит), а не превращаются в точку.
+const MIN_FIT_ZOOM = 0.55;
+
+function smartFit(cy: cytoscape.Core): void {
+  cy.fit(undefined, 30);
+  // Если граф большой и вписался слишком мелко — поднимаем до читаемого
+  // масштаба и центрируем (остальное пользователь панорамирует/зумит).
+  if (cy.zoom() < MIN_FIT_ZOOM) {
+    cy.zoom(MIN_FIT_ZOOM);
+    cy.center();
+  }
+}
 
 const BADGE_W = 40;
 const BADGE_SVG_H = 48;
@@ -47,7 +68,7 @@ const GRAPH_STYLE = [
       'text-halign': 'center',
       'text-wrap': 'wrap',
       'text-max-width': 'data(tw)',
-      'font-size': 11,
+      'font-size': 13,
       width: 'data(w)',
       shape: 'round-rectangle',
     },
@@ -90,7 +111,7 @@ const GRAPH_STYLE = [
       'target-arrow-shape': 'triangle',
       'curve-style': 'bezier',
       label: 'data(count)',
-      'font-size': 10,
+      'font-size': 11,
       color: '#8c8c8c',
       'text-background-color': '#ffffff',
       'text-background-opacity': 1,
@@ -145,6 +166,7 @@ export function ProcessGraph({
   const cyRef = useRef<cytoscape.Core | null>(null);
   const highlightRef = useRef(highlight);
   highlightRef.current = highlight;
+  const [expanded, setExpanded] = useState(false);
 
   const elements = useMemo(() => {
     const nodeEls = nodes.map((node) => {
@@ -190,16 +212,39 @@ export function ProcessGraph({
       style: GRAPH_STYLE,
       layout: { name: 'dagre', rankDir: 'TB', nodeSep: 35, rankSep: 55 },
       minZoom: 0.2,
-      maxZoom: 2.5,
+      maxZoom: 3,
       wheelSensitivity: 0.2,
     } as unknown as cytoscape.CytoscapeOptions);
     cyRef.current = cy;
+    cy.one('layoutstop', () => smartFit(cy));
     applyHighlight(cy, highlightRef.current);
     return () => {
       cy.destroy();
       cyRef.current = null;
     };
   }, [elements]);
+
+  // При разворачивании/сворачивании контейнер меняет размер — пересчитываем
+  // размеры cytoscape и вписываем граф заново.
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    const id = requestAnimationFrame(() => {
+      cy.resize();
+      smartFit(cy);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [expanded]);
+
+  // Esc — выход из полноэкранного режима.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [expanded]);
 
   useEffect(() => {
     if (cyRef.current) {
@@ -221,16 +266,75 @@ export function ProcessGraph({
     URL.revokeObjectURL(url);
   };
 
+  const zoomBy = (factor: number) => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    cy.zoom({
+      level: cy.zoom() * factor,
+      renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 },
+    });
+  };
+
+  const toolbar = (
+    <Space size="small" wrap>
+      <Tooltip title="Приблизить">
+        <Button size="small" icon={<ZoomInOutlined />} onClick={() => zoomBy(1.25)} />
+      </Tooltip>
+      <Tooltip title="Отдалить">
+        <Button size="small" icon={<ZoomOutOutlined />} onClick={() => zoomBy(0.8)} />
+      </Tooltip>
+      <Button
+        size="small"
+        icon={<CompressOutlined />}
+        onClick={() => cyRef.current && smartFit(cyRef.current)}
+      >
+        Вписать
+      </Button>
+      <Button
+        size="small"
+        icon={expanded ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? 'Свернуть' : 'На весь экран'}
+      </Button>
+      <Button size="small" icon={<DownloadOutlined />} onClick={exportPng}>
+        PNG
+      </Button>
+    </Space>
+  );
+
+  const wrapperStyle: CSSProperties = expanded
+    ? {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        background: '#fff',
+        padding: 12,
+        display: 'flex',
+        flexDirection: 'column',
+      }
+    : {};
+
   return (
-    <div>
-      <div style={{ textAlign: 'right', marginBottom: 8 }}>
-        <Button size="small" icon={<DownloadOutlined />} onClick={exportPng}>
-          Скачать PNG
-        </Button>
+    <div style={wrapperStyle}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          marginBottom: 8,
+        }}
+      >
+        {toolbar}
       </div>
       <div
         ref={containerRef}
-        style={{ height, border: '1px solid #f0f0f0', borderRadius: 8 }}
+        style={{
+          height: expanded ? '100%' : height,
+          flex: expanded ? 1 : undefined,
+          minHeight: 0,
+          border: '1px solid #f0f0f0',
+          borderRadius: 8,
+        }}
       />
     </div>
   );
