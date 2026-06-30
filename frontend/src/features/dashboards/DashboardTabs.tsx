@@ -34,6 +34,8 @@ interface DashboardTabsProps {
   vdId: number;
   vdName: string;
   globalFilters?: EventFilter;
+  /** Глобальный режим операций датасета (raw|role) — для embedded ProcessGraphTab. */
+  activityLevel?: string;
 }
 
 /**
@@ -55,6 +57,7 @@ export function DashboardTabs({
   vdId,
   vdName,
   globalFilters,
+  activityLevel,
 }: DashboardTabsProps) {
   // Берём корень активного ключа (`details.cases` → `details`); если ключ —
   // это листовая топ-вкладка (`overview`/`standard_metrics`), оставляем как есть.
@@ -96,6 +99,7 @@ export function DashboardTabs({
           vdName={vdName}
           embedded
           externalFilter={globalFilters}
+          activityLevel={activityLevel}
         />
       );
     }

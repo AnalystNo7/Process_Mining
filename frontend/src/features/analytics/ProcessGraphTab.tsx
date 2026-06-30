@@ -61,6 +61,7 @@ export function ProcessGraphTab({
   vdName,
   embedded = false,
   externalFilter,
+  activityLevel: externalActivityLevel,
 }: {
   projectId: number;
   vdId: number;
@@ -69,6 +70,9 @@ export function ProcessGraphTab({
    * собственной FilterPanel, фильтры приходят извне (externalFilter). */
   embedded?: boolean;
   externalFilter?: EventFilter;
+  /** Глобальный режим операций датасета (raw|role). В embedded-режиме им
+   * управляет переключатель дашборда; локальный селектор не используется. */
+  activityLevel?: string;
 }) {
   const [localFilters, setLocalFilters] = useState<EventFilter>({});
   // В embedded-режиме игнорируем локальный state и берём фильтры от родителя.
@@ -79,6 +83,11 @@ export function ProcessGraphTab({
   );
   const [mode, setMode] = useState<'top_paths' | 'frequency'>('top_paths');
   const [activityLevel, setActivityLevel] = useState('raw');
+  // В embedded-режиме операции отображаются согласно глобальному режиму VD
+  // (переключатель дашборда), а не локальному селектору.
+  const effectiveActivityLevel = embedded
+    ? (externalActivityLevel ?? 'raw')
+    : activityLevel;
   const [n, setN] = useState(5);
   const [minEdge, setMinEdge] = useState(0);
   const [maxNodes, setMaxNodes] = useState(60);
@@ -89,7 +98,7 @@ export function ProcessGraphTab({
 
   useEffect(() => {
     setSelectedPaths([]);
-  }, [filtersKey, n, activityLevel]);
+  }, [filtersKey, n, effectiveActivityLevel]);
 
   const optionsQuery = useQuery({
     queryKey: ['filter-options', projectId, vdId],
@@ -97,12 +106,12 @@ export function ProcessGraphTab({
   });
 
   const pathsQuery = useQuery({
-    queryKey: ['process-paths', projectId, vdId, n, activityLevel, filtersKey],
+    queryKey: ['process-paths', projectId, vdId, n, effectiveActivityLevel, filtersKey],
     queryFn: () =>
       getProcessMap(projectId, vdId, {
         mode: 'top_paths',
         n,
-        activity_level: activityLevel,
+        activity_level: effectiveActivityLevel,
         filters,
       }),
   });
@@ -132,7 +141,7 @@ export function ProcessGraphTab({
       vdId,
       mode,
       n,
-      activityLevel,
+      effectiveActivityLevel,
       minEdge,
       maxNodes,
       effectiveKey,
@@ -141,7 +150,7 @@ export function ProcessGraphTab({
       getProcessMap(projectId, vdId, {
         mode,
         n,
-        activity_level: activityLevel,
+        activity_level: effectiveActivityLevel,
         min_edge_frequency_pct: minEdge,
         max_nodes: maxNodes,
         filters: effectiveFilters,
@@ -149,10 +158,10 @@ export function ProcessGraphTab({
   });
 
   const operationsQuery = useQuery({
-    queryKey: ['process-operations', projectId, vdId, activityLevel, effectiveKey],
+    queryKey: ['process-operations', projectId, vdId, effectiveActivityLevel, effectiveKey],
     queryFn: () =>
       getOperations(projectId, vdId, {
-        activity_level: activityLevel,
+        activity_level: effectiveActivityLevel,
         filters: effectiveFilters,
       }),
   });

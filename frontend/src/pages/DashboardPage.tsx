@@ -159,6 +159,7 @@ export function DashboardPage() {
               vdId={vdId}
               vdName={vdName}
               globalFilters={globalFilters}
+              activityLevel={(vd?.config?.activity_level as string) ?? 'raw'}
             />
           </div>
         </div>
