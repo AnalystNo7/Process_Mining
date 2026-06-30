@@ -58,7 +58,7 @@ const NODE_LIMITS = [40, 60, 100, 200].map((value) => ({
 // Высота графа и панели путей «во весь экран»: адаптивно под окно, с минимумом
 // для маленьких экранов. Отступы — app-header, шапка дашборда, бары вкладок и
 // ряд контролов над графом.
-const GRAPH_HEIGHT = 'max(460px, calc(100vh - 320px))';
+const GRAPH_HEIGHT = 'max(620px, calc(100vh - 140px))';
 
 export function ProcessGraphTab({
   projectId,
@@ -421,7 +421,7 @@ export function ProcessGraphTab({
           </Button>
         </Space>
 
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <Card size="small" title="Количество операций и переходов">
               {mapQuery.isLoading ? (
@@ -445,7 +445,7 @@ export function ProcessGraphTab({
             <Card
               size="small"
               style={{
-                height: GRAPH_HEIGHT,
+                height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
               }}
