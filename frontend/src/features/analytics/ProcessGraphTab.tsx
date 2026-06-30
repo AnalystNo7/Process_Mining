@@ -55,6 +55,11 @@ const NODE_LIMITS = [40, 60, 100, 200].map((value) => ({
   label: `${value} операций`,
 }));
 
+// Высота графа и панели путей «во весь экран»: адаптивно под окно, с минимумом
+// для маленьких экранов. Отступы — app-header, шапка дашборда, бары вкладок и
+// ряд контролов над графом.
+const GRAPH_HEIGHT = 'max(460px, calc(100vh - 320px))';
+
 export function ProcessGraphTab({
   projectId,
   vdId,
@@ -303,7 +308,6 @@ export function ProcessGraphTab({
       </Checkbox>
       <List
         size="small"
-        style={{ maxHeight: 380, overflow: 'auto' }}
         dataSource={paths}
         locale={{ emptyText: 'Нет путей' }}
         renderItem={(path) => {
@@ -395,13 +399,19 @@ export function ProcessGraphTab({
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <Space style={{ marginBottom: 16 }} wrap>
-          <Typography.Text type="secondary">Детализация:</Typography.Text>
-          <Select
-            value={activityLevel}
-            onChange={setActivityLevel}
-            options={ACTIVITY_LEVELS}
-            style={{ width: 200 }}
-          />
+          {/* В embedded режим операций задаёт глобальный переключатель дашборда,
+              локальный селектор скрываем, чтобы не было дублирующего контрола. */}
+          {!embedded && (
+            <>
+              <Typography.Text type="secondary">Детализация:</Typography.Text>
+              <Select
+                value={activityLevel}
+                onChange={setActivityLevel}
+                options={ACTIVITY_LEVELS}
+                style={{ width: 200 }}
+              />
+            </>
+          )}
           <Button
             icon={<DownloadOutlined />}
             loading={bpmnMutation.isPending}
@@ -425,6 +435,7 @@ export function ProcessGraphTab({
                   nodes={mapData.nodes}
                   edges={mapData.edges}
                   highlight={highlight}
+                  height={GRAPH_HEIGHT}
                 />
               )}
             </Card>
@@ -433,6 +444,12 @@ export function ProcessGraphTab({
           <div style={{ width: 380, flexShrink: 0 }}>
             <Card
               size="small"
+              style={{
+                height: GRAPH_HEIGHT,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+              styles={{ body: { flex: 1, minHeight: 0, overflow: 'auto' } }}
               tabList={[
                 { key: 'top_paths', tab: 'Пути процесса' },
                 { key: 'frequency', tab: 'Частотный фильтр' },

@@ -139,7 +139,7 @@ export function ProcessGraph({
   nodes: CytoscapeElement[];
   edges: CytoscapeElement[];
   highlight?: GraphHighlight;
-  height?: number;
+  height?: number | string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
