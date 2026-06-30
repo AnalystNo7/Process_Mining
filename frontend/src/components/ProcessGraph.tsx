@@ -218,7 +218,24 @@ export function ProcessGraph({
     cyRef.current = cy;
     cy.one('layoutstop', () => smartFit(cy));
     applyHighlight(cy, highlightRef.current);
+
+    // Контейнер может менять размер (flex-заполнение, ресайз окна) — держим
+    // граф вписанным. rAF дебаунсит залпы изменений.
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (cyRef.current) {
+          cyRef.current.resize();
+          smartFit(cyRef.current);
+        }
+      });
+    });
+    ro.observe(container);
+
     return () => {
+      ro.disconnect();
+      cancelAnimationFrame(raf);
       cy.destroy();
       cyRef.current = null;
     };
@@ -303,17 +320,23 @@ export function ProcessGraph({
     </Space>
   );
 
-  const wrapperStyle: CSSProperties = expanded
-    ? {
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
-        background: '#fff',
-        padding: 12,
-        display: 'flex',
-        flexDirection: 'column',
-      }
-    : {};
+  // fill — компонент заполняет flex-родителя (height="100%"), а не задаёт
+  // фиксированную высоту. Используется, чтобы граф был вровень с панелью путей.
+  const fill = !expanded && height === '100%';
+  const wrapperStyle: CSSProperties =
+    expanded
+      ? {
+          position: 'fixed',
+          inset: 0,
+          zIndex: 1000,
+          background: '#fff',
+          padding: 12,
+          display: 'flex',
+          flexDirection: 'column',
+        }
+      : fill
+        ? { height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }
+        : {};
 
   return (
     <div style={wrapperStyle}>
@@ -329,8 +352,8 @@ export function ProcessGraph({
       <div
         ref={containerRef}
         style={{
-          height: expanded ? '100%' : height,
-          flex: expanded ? 1 : undefined,
+          height: expanded || fill ? '100%' : height,
+          flex: expanded || fill ? 1 : undefined,
           minHeight: 0,
           border: '1px solid #f0f0f0',
           borderRadius: 8,

@@ -421,9 +421,21 @@ export function ProcessGraphTab({
           </Button>
         </Space>
 
-        <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <Card size="small" title="Количество операций и переходов">
+        <div
+          style={{
+            display: 'flex',
+            gap: 16,
+            alignItems: 'stretch',
+            height: GRAPH_HEIGHT,
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0, display: 'flex' }}>
+            <Card
+              size="small"
+              title="Количество операций и переходов"
+              style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+              styles={{ body: { flex: 1, minHeight: 0 } }}
+            >
               {mapQuery.isLoading ? (
                 <div style={{ textAlign: 'center', padding: 48 }}>
                   <Spin size="large" />
@@ -435,16 +447,17 @@ export function ProcessGraphTab({
                   nodes={mapData.nodes}
                   edges={mapData.edges}
                   highlight={highlight}
-                  height={GRAPH_HEIGHT}
+                  height="100%"
                 />
               )}
             </Card>
           </div>
 
-          <div style={{ width: 380, flexShrink: 0 }}>
+          <div style={{ width: 380, flexShrink: 0, display: 'flex' }}>
             <Card
               size="small"
               style={{
+                flex: 1,
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
