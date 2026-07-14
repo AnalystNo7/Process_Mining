@@ -31,7 +31,11 @@ def parse_excel_datetime(series: pd.Series) -> pd.Series:
 
 
 def _localize_msk_to_utc(series: pd.Series) -> pd.Series:
-    """Время в файле — московское; локализуем в Europe/Moscow и переводим в UTC."""
+    """Приводит времена к UTC. Если в файле уже есть смещение (tz-aware) —
+    доверяем ему и просто переводим в UTC. Наивное время считаем московским
+    локальным и локализуем в Europe/Moscow."""
+    if series.dt.tz is not None:
+        return series.dt.tz_convert("UTC")
     return series.dt.tz_localize(
         "Europe/Moscow", ambiguous="NaT", nonexistent="shift_forward"
     ).dt.tz_convert("UTC")

@@ -63,6 +63,28 @@ def test_load_event_log_basic(tmp_path) -> None:
     assert df["timestamp_start"].iloc[0].hour == 7
 
 
+def test_load_event_log_tz_aware_input(tmp_path) -> None:
+    """Времена в файле — строки со смещением (+03:00), pandas читает их как
+    tz-aware. Не падаем, доверяем смещению из файла и переводим в UTC:
+    10:00+03:00 → 07:00 UTC (Excel не хранит tz, поэтому вход — строки)."""
+    path = _write_xlsx(
+        tmp_path,
+        [
+            {
+                "doc_id": "D1",
+                "op": "Регистрация",
+                "t_start": "2025-01-09 10:00:00+03:00",
+                "t_end": "2025-01-09 11:00:00+03:00",
+                "user": "Иванов",
+                "dept": "Договорной отдел",
+            }
+        ],
+    )
+    df = load_event_log(path, _MAPPING)
+    assert str(df["timestamp_start"].dtype).endswith("UTC]")
+    assert df["timestamp_start"].iloc[0].hour == 7
+
+
 def test_load_event_log_header_row(tmp_path) -> None:
     """Файл с шапкой отчёта: заголовки на 3-й строке (header_row=2)."""
     path = tmp_path / "log.xlsx"
