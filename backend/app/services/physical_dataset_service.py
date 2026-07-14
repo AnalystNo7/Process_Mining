@@ -17,7 +17,12 @@ from app.db.models.users import User
 from app.db.repositories.event_log import PostgresEventLogRepository
 from app.domain.mining.health import health_check
 from app.domain.mining.loading import load_event_log, validate_event_log
-from app.schemas.physical_datasets import ColumnInfo, PhysicalDatasetCreate, PreviewResponse
+from app.schemas.physical_datasets import (
+    ColumnInfo,
+    PhysicalDatasetCreate,
+    PreviewResponse,
+    SheetInfo,
+)
 from app.services import audit_service, role_mapping_service
 
 # Эвристика авто-сопоставления колонок файла стандартным полям.
@@ -69,21 +74,49 @@ def _suggest_header_row(raw_head: pd.DataFrame) -> int:
     return int(counts.idxmax())
 
 
-def _build_preview(tmp_path: Path, token: str, header_row: int | None) -> PreviewResponse:
-    """Собирает превью: сырые строки для пикера заголовка + разбор файла
-    с заданной (или подсказанной) строкой заголовков."""
+def _sheet_infos(tmp_path: Path) -> list[SheetInfo]:
+    """Список листов файла с числом строк данных на каждом."""
+    xl = pd.ExcelFile(tmp_path)
+    infos: list[SheetInfo] = []
+    for name in xl.sheet_names:
+        rows = int(len(xl.parse(name, header=None)))
+        infos.append(SheetInfo(name=str(name), rows=rows))
+    return infos
+
+
+def _suggest_sheet(infos: list[SheetInfo]) -> str:
+    """Подсказка листа: с наибольшим числом строк (для сводных файлов это
+    обычно основной лист). При равенстве/пустых — первый по порядку."""
+    if not infos:
+        raise ValueError("В файле нет листов")
+    return max(infos, key=lambda s: s.rows).name if any(
+        s.rows for s in infos
+    ) else infos[0].name
+
+
+def _build_preview(
+    tmp_path: Path, token: str, sheet_name: str | None, header_row: int | None
+) -> PreviewResponse:
+    """Собирает превью: список листов + сырые строки для пикера заголовка +
+    разбор выбранного листа с заданной (или подсказанной) строкой заголовков."""
+    sheets = _sheet_infos(tmp_path)
+    if sheet_name is None:
+        sheet_name = _suggest_sheet(sheets)
+    elif sheet_name not in {s.name for s in sheets}:
+        raise ValueError(f"Лист {sheet_name!r} не найден в файле")
+
     raw_head = pd.read_excel(
-        tmp_path, sheet_name=0, header=None, nrows=_RAW_PREVIEW_ROWS
+        tmp_path, sheet_name=sheet_name, header=None, nrows=_RAW_PREVIEW_ROWS
     )
     raw_rows: list[list[str]] = raw_head.fillna("").astype(str).values.tolist()
     if header_row is None:
         header_row = _suggest_header_row(raw_head)
     elif header_row >= len(raw_head):
         raise ValueError(
-            f"Строка заголовков {header_row + 1} выходит за пределы файла"
+            f"Строка заголовков {header_row + 1} выходит за пределы листа"
         )
 
-    raw = pd.read_excel(tmp_path, sheet_name=0, header=header_row)
+    raw = pd.read_excel(tmp_path, sheet_name=sheet_name, header=header_row)
     columns = [
         ColumnInfo(
             name=str(col),
@@ -103,25 +136,30 @@ def _build_preview(tmp_path: Path, token: str, header_row: int | None) -> Previe
         preview_token=token,
         raw_rows=raw_rows,
         header_row=header_row,
+        sheets=sheets,
+        sheet_name=sheet_name,
     )
 
 
 async def preview_upload(file: UploadFile) -> PreviewResponse:
     """Сохраняет файл во временное хранилище, возвращает превью и маппинг.
-    Строка заголовков подбирается автоматически (уточняется через reparse)."""
+    Лист и строка заголовков подбираются автоматически (уточняются reparse)."""
     token = uuid4().hex
     tmp_path = _tmp_dir() / f"{token}.xlsx"
     tmp_path.write_bytes(await file.read())
-    return _build_preview(tmp_path, token, header_row=None)
+    return _build_preview(tmp_path, token, sheet_name=None, header_row=None)
 
 
-async def reparse_preview(preview_token: str, header_row: int) -> PreviewResponse:
-    """Повторный разбор ранее загруженного файла с другой строкой заголовков
-    (без повторной загрузки файла)."""
+async def reparse_preview(
+    preview_token: str, sheet_name: str, header_row: int | None
+) -> PreviewResponse:
+    """Повторный разбор ранее загруженного файла с другим листом и/или строкой
+    заголовков (без повторной загрузки). header_row=None — переподсказать для
+    выбранного листа (используется при смене листа)."""
     tmp_path = _tmp_dir() / f"{preview_token}.xlsx"
     if not tmp_path.exists():
         raise EntityNotFoundError("preview_token недействителен или истёк")
-    return _build_preview(tmp_path, preview_token, header_row)
+    return _build_preview(tmp_path, preview_token, sheet_name, header_row)
 
 
 async def create_physical_dataset(
@@ -149,6 +187,7 @@ async def create_physical_dataset(
         storage_path="",
         column_mapping=payload.column_mapping,
         header_row=payload.header_row,
+        sheet_name=payload.sheet_name,
         total_events=0,
         total_cases=0,
         unique_activities=0,
@@ -172,6 +211,7 @@ async def create_physical_dataset(
                 name=f"Шаблон: {payload.name}",
                 column_mapping=payload.column_mapping,
                 header_row=payload.header_row,
+                sheet_name=payload.sheet_name,
                 is_default=False,
             )
         )
@@ -197,7 +237,10 @@ async def process_upload(
     await db.commit()
 
     try:
-        df = load_event_log(file_path, dataset.column_mapping, dataset.header_row)
+        sheet = dataset.sheet_name if dataset.sheet_name is not None else 0
+        df = load_event_log(
+            file_path, dataset.column_mapping, dataset.header_row, sheet
+        )
     except Exception as exc:  # noqa: BLE001 — любая ошибка парсинга → failed
         dataset.status = "failed"
         dataset.error_message = f"Ошибка чтения файла: {exc}"

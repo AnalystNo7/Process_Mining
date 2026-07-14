@@ -94,10 +94,10 @@ export function UploadWizard({ projectId, open, onClose }: UploadWizardProps) {
   });
 
   const reparseMutation = useMutation({
-    mutationFn: (headerRow: number) =>
+    mutationFn: (args: { sheet_name: string; header_row?: number }) =>
       reparsePreview(projectId, {
         preview_token: preview?.preview_token ?? '',
-        header_row: headerRow,
+        ...args,
       }),
     onSuccess: (data) => {
       setPreview(data);
@@ -120,6 +120,7 @@ export function UploadWizard({ projectId, open, onClose }: UploadWizardProps) {
         preview_token: preview?.preview_token ?? '',
         column_mapping: mapping,
         header_row: preview?.header_row ?? 0,
+        sheet_name: preview?.sheet_name ?? null,
         save_as_template: values.save_as_template,
       });
     },
@@ -221,6 +222,25 @@ export function UploadWizard({ projectId, open, onClose }: UploadWizardProps) {
 
       {step === 1 && preview && (
         <div>
+          {preview.sheets.length > 1 && (
+            <Form.Item label="Лист Excel" style={{ marginBottom: 12 }}>
+              <Select
+                value={preview.sheet_name}
+                style={{ maxWidth: 360 }}
+                disabled={reparseMutation.isPending}
+                onChange={(name) => {
+                  if (name !== preview.sheet_name) {
+                    // Смена листа → строку заголовков переподсказать заново.
+                    reparseMutation.mutate({ sheet_name: name });
+                  }
+                }}
+                options={preview.sheets.map((s) => ({
+                  value: s.name,
+                  label: `${s.name} (${s.rows} строк)`,
+                }))}
+              />
+            </Form.Item>
+          )}
           <Typography.Paragraph type="secondary">
             Отметьте строку файла, в которой находятся названия колонок
             (подсказка выбрана автоматически) — всё выше неё будет отброшено.
@@ -240,14 +260,20 @@ export function UploadWizard({ projectId, open, onClose }: UploadWizardProps) {
               onChange: (keys) => {
                 const row = Number(keys[0]);
                 if (row !== preview.header_row) {
-                  reparseMutation.mutate(row);
+                  reparseMutation.mutate({
+                    sheet_name: preview.sheet_name,
+                    header_row: row,
+                  });
                 }
               },
             }}
             onRow={(record) => ({
               onClick: () => {
                 if (record.__row !== preview.header_row) {
-                  reparseMutation.mutate(record.__row);
+                  reparseMutation.mutate({
+                    sheet_name: preview.sheet_name,
+                    header_row: record.__row,
+                  });
                 }
               },
               style: { cursor: 'pointer' },

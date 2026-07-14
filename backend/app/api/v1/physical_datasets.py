@@ -40,7 +40,7 @@ async def reparse_preview(
     """Повторный разбор загруженного файла с другой строкой заголовков."""
     try:
         return await physical_dataset_service.reparse_preview(
-            payload.preview_token, payload.header_row
+            payload.preview_token, payload.sheet_name, payload.header_row
         )
     except EntityNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc

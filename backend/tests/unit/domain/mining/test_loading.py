@@ -103,6 +103,24 @@ def test_load_event_log_header_row(tmp_path) -> None:
     assert df["activity"].iloc[0] == "Регистрация"
 
 
+def test_load_event_log_sheet_name(tmp_path) -> None:
+    """Данные на втором листе — читаем именно его по имени."""
+    path = tmp_path / "multi.xlsx"
+    row = {
+        "doc_id": "D9", "op": "Проверка",
+        "t_start": datetime(2025, 2, 1, 10, 0),
+        "t_end": datetime(2025, 2, 1, 11, 0),
+        "user": "П", "dept": "Отдел",
+    }
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame([{"x": 1}]).to_excel(writer, sheet_name="Пусто", index=False)
+        pd.DataFrame([row]).to_excel(writer, sheet_name="Данные", index=False)
+
+    df = load_event_log(str(path), _MAPPING, sheet_name="Данные")
+    assert len(df) == 1
+    assert df["case_id"].iloc[0] == "D9"
+
+
 def test_load_event_log_additional_attributes(tmp_path) -> None:
     path = _write_xlsx(
         tmp_path,

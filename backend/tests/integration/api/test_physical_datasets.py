@@ -12,8 +12,10 @@ from app.core.config import settings
 from app.db.models.datasets import PhysicalDataset
 from app.db.models.projects import UploadTemplate
 from app.db.models.users import AuditLog
+from app.schemas.physical_datasets import SheetInfo
 from app.services.physical_dataset_service import (
     _suggest_header_row,
+    _suggest_sheet,
     process_upload,
     suggest_column_mapping,
 )
@@ -48,6 +50,15 @@ def _xlsx_grid_bytes(grid: list[list]) -> bytes:
     """Лист «как есть», без строки заголовков от pandas."""
     buf = io.BytesIO()
     pd.DataFrame(grid).to_excel(buf, index=False, header=False)
+    return buf.getvalue()
+
+
+def _xlsx_multisheet_bytes(sheets: dict[str, list[dict]]) -> bytes:
+    """Книга с несколькими листами (лист → строки-словари)."""
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf) as writer:
+        for name, rows in sheets.items():
+            pd.DataFrame(rows).to_excel(writer, sheet_name=name, index=False)
     return buf.getvalue()
 
 
@@ -140,6 +151,9 @@ async def test_preview_returns_columns_and_token(
     # Чистый файл: заголовки на первой строке, сырые строки — для пикера.
     assert data["header_row"] == 0
     assert data["raw_rows"][0] == ["doc_id", "op", "t_start", "t_end"]
+    # Один лист — он же выбран.
+    assert [s["name"] for s in data["sheets"]] == ["Sheet1"]
+    assert data["sheet_name"] == "Sheet1"
 
 
 def test_suggest_header_row_skips_report_header() -> None:
@@ -147,6 +161,74 @@ def test_suggest_header_row_skips_report_header() -> None:
     assert _suggest_header_row(raw_head) == 2
     # Чистый файл — первая строка.
     assert _suggest_header_row(pd.DataFrame([["a", "b"], [1, 2]])) == 0
+
+
+def test_suggest_sheet_picks_largest() -> None:
+    infos = [
+        SheetInfo(name="A", rows=3),
+        SheetInfo(name="Общее", rows=50),
+        SheetInfo(name="B", rows=10),
+    ]
+    assert _suggest_sheet(infos) == "Общее"
+    # Один лист — он же.
+    assert _suggest_sheet([SheetInfo(name="Solo", rows=5)]) == "Solo"
+    # Все пустые — первый.
+    assert _suggest_sheet(
+        [SheetInfo(name="X", rows=0), SheetInfo(name="Y", rows=0)]
+    ) == "X"
+
+
+async def test_preview_suggests_largest_sheet(
+    client, analyst_user, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "STORAGE_PATH", tmp_path)
+    project_id = await _create_project(client, analyst_user.headers)
+    content = _xlsx_multisheet_bytes(
+        {"Малый": _small_rows(3), "Общее": _small_rows(20)}
+    )
+    resp = await client.post(
+        f"/api/v1/projects/{project_id}/physical-datasets/preview",
+        headers=analyst_user.headers,
+        files={"file": ("log.xlsx", content, "application/vnd.ms-excel")},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert {s["name"] for s in data["sheets"]} == {"Малый", "Общее"}
+    assert data["sheet_name"] == "Общее"
+    assert data["total_rows"] == 20
+
+
+async def test_reparse_switches_sheet(
+    client, analyst_user, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "STORAGE_PATH", tmp_path)
+    project_id = await _create_project(client, analyst_user.headers)
+    content = _xlsx_multisheet_bytes(
+        {"Малый": _small_rows(3), "Общее": _small_rows(20)}
+    )
+    preview = await client.post(
+        f"/api/v1/projects/{project_id}/physical-datasets/preview",
+        headers=analyst_user.headers,
+        files={"file": ("log.xlsx", content, "application/vnd.ms-excel")},
+    )
+    token = preview.json()["preview_token"]
+    url = f"/api/v1/projects/{project_id}/physical-datasets/preview/reparse"
+
+    resp = await client.post(
+        url, headers=analyst_user.headers,
+        json={"preview_token": token, "sheet_name": "Малый"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["sheet_name"] == "Малый"
+    assert data["total_rows"] == 3
+
+    # Несуществующий лист → 400.
+    resp = await client.post(
+        url, headers=analyst_user.headers,
+        json={"preview_token": token, "sheet_name": "Нет"},
+    )
+    assert resp.status_code == 400
 
 
 async def test_preview_suggests_header_row_for_report_file(
@@ -184,7 +266,7 @@ async def test_reparse_preview_changes_header_row(
     url = f"/api/v1/projects/{project_id}/physical-datasets/preview/reparse"
     resp = await client.post(
         url, headers=analyst_user.headers,
-        json={"preview_token": token, "header_row": 0},
+        json={"preview_token": token, "sheet_name": "Sheet1", "header_row": 0},
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -195,14 +277,14 @@ async def test_reparse_preview_changes_header_row(
     # Строка за пределами файла → 400.
     resp = await client.post(
         url, headers=analyst_user.headers,
-        json={"preview_token": token, "header_row": 999},
+        json={"preview_token": token, "sheet_name": "Sheet1", "header_row": 999},
     )
     assert resp.status_code == 400
 
     # Неизвестный токен → 404.
     resp = await client.post(
         url, headers=analyst_user.headers,
-        json={"preview_token": "0" * 32, "header_row": 0},
+        json={"preview_token": "0" * 32, "sheet_name": "Sheet1", "header_row": 0},
     )
     assert resp.status_code == 404
 

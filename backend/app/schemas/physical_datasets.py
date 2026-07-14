@@ -10,6 +10,11 @@ class ColumnInfo(BaseModel):
     dtype: str
 
 
+class SheetInfo(BaseModel):
+    name: str
+    rows: int
+
+
 class PreviewResponse(BaseModel):
     columns: list[ColumnInfo]
     preview_rows: list[dict[str, Any]]
@@ -20,11 +25,16 @@ class PreviewResponse(BaseModel):
     raw_rows: list[list[str]]
     # Применённая строка заголовков (0-based; при первом preview — подсказанная).
     header_row: int
+    # Листы файла и выбранный (при первом preview — подсказанный) лист.
+    sheets: list[SheetInfo]
+    sheet_name: str
 
 
 class PreviewReparseRequest(BaseModel):
     preview_token: str = Field(pattern=r"^[0-9a-f]{32}$")
-    header_row: int = Field(ge=0)
+    sheet_name: str
+    # None — переподсказать строку заголовков для выбранного листа.
+    header_row: int | None = Field(default=None, ge=0)
 
 
 class PhysicalDatasetCreate(BaseModel):
@@ -32,6 +42,7 @@ class PhysicalDatasetCreate(BaseModel):
     preview_token: str
     column_mapping: dict[str, Any]
     header_row: int = Field(default=0, ge=0)
+    sheet_name: str | None = None
     save_as_template: bool = False
 
 
@@ -59,6 +70,7 @@ class PhysicalDatasetResponse(BaseModel):
     health_report: dict[str, Any]
     column_mapping: dict[str, Any]
     header_row: int
+    sheet_name: str | None
     uploaded_at: datetime
     error_message: str | None
 

@@ -136,6 +136,8 @@ class UploadTemplate(Base):
     header_row: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="0"
     )
+    # Лист Excel (имя); NULL — первый лист.
+    sheet_name: Mapped[str | None] = mapped_column(String(255))
     is_default: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")
     )

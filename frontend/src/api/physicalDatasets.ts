@@ -6,6 +6,11 @@ export interface ColumnInfo {
   dtype: string;
 }
 
+export interface SheetInfo {
+  name: string;
+  rows: number;
+}
+
 export interface PreviewResponse {
   columns: ColumnInfo[];
   preview_rows: Record<string, unknown>[];
@@ -16,6 +21,9 @@ export interface PreviewResponse {
   raw_rows: string[][];
   /** Применённая строка заголовков (0-based). */
   header_row: number;
+  /** Листы файла и выбранный лист. */
+  sheets: SheetInfo[];
+  sheet_name: string;
 }
 
 export interface PhysicalDataset {
@@ -34,6 +42,7 @@ export interface PhysicalDataset {
   health_report: Record<string, unknown>;
   column_mapping: Record<string, string>;
   header_row: number;
+  sheet_name: string | null;
   uploaded_at: string;
   error_message: string | null;
 }
@@ -61,6 +70,7 @@ export interface CreateDatasetPayload {
   preview_token: string;
   column_mapping: Record<string, string>;
   header_row: number;
+  sheet_name: string | null;
   save_as_template: boolean;
 }
 
@@ -79,7 +89,7 @@ export async function previewDataset(
 
 export async function reparsePreview(
   projectId: number,
-  payload: { preview_token: string; header_row: number }
+  payload: { preview_token: string; sheet_name: string; header_row?: number }
 ): Promise<PreviewResponse> {
   const { data } = await apiClient.post<PreviewResponse>(
     `/projects/${projectId}/physical-datasets/preview/reparse`,
