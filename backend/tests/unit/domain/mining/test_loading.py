@@ -63,6 +63,24 @@ def test_load_event_log_basic(tmp_path) -> None:
     assert df["timestamp_start"].iloc[0].hour == 7
 
 
+def test_load_event_log_header_row(tmp_path) -> None:
+    """Файл с шапкой отчёта: заголовки на 3-й строке (header_row=2)."""
+    path = tmp_path / "log.xlsx"
+    grid = [
+        ["Отчёт за январь", None, None, None, None, None],
+        [None, None, None, None, None, None],
+        ["doc_id", "op", "t_start", "t_end", "user", "dept"],
+        ["D1", "Регистрация", datetime(2025, 1, 9, 10, 0),
+         datetime(2025, 1, 9, 11, 0), "Иванов", "Договорной отдел"],
+    ]
+    pd.DataFrame(grid).to_excel(path, index=False, header=False)
+
+    df = load_event_log(str(path), _MAPPING, header_row=2)
+    assert len(df) == 1
+    assert df["case_id"].iloc[0] == "D1"
+    assert df["activity"].iloc[0] == "Регистрация"
+
+
 def test_load_event_log_additional_attributes(tmp_path) -> None:
     path = _write_xlsx(
         tmp_path,

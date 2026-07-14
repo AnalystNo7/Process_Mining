@@ -37,11 +37,14 @@ def _localize_msk_to_utc(series: pd.Series) -> pd.Series:
     ).dt.tz_convert("UTC")
 
 
-def load_event_log(file_path: Path | str, column_mapping: dict[str, Any]) -> pd.DataFrame:
+def load_event_log(
+    file_path: Path | str, column_mapping: dict[str, Any], header_row: int = 0
+) -> pd.DataFrame:
     """Загружает xlsx, применяет маппинг колонок, возвращает стандартизованный
     DataFrame с колонками case_id, activity, timestamp_start, timestamp_end,
-    resource, department, attributes."""
-    raw = pd.read_excel(file_path, sheet_name=0)
+    resource, department, attributes. header_row — номер строки заголовков
+    (0-based); должен совпадать с разбором на этапе preview."""
+    raw = pd.read_excel(file_path, sheet_name=0, header=header_row)
 
     result = pd.DataFrame()
     for std_field in REQUIRED_FIELDS:

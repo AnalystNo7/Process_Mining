@@ -10,8 +10,13 @@ from sqlalchemy import select
 from app.celery_app import celery_app
 from app.core.config import settings
 from app.db.models.datasets import PhysicalDataset
+from app.db.models.projects import UploadTemplate
 from app.db.models.users import AuditLog
-from app.services.physical_dataset_service import process_upload, suggest_column_mapping
+from app.services.physical_dataset_service import (
+    _suggest_header_row,
+    process_upload,
+    suggest_column_mapping,
+)
 from app.tasks.upload import upload_dataset_task
 
 GOLDEN_DIR = Path(__file__).parents[4] / "golden_data"
@@ -39,6 +44,29 @@ def _xlsx_bytes(rows: list[dict]) -> bytes:
     return buf.getvalue()
 
 
+def _xlsx_grid_bytes(grid: list[list]) -> bytes:
+    """Лист «как есть», без строки заголовков от pandas."""
+    buf = io.BytesIO()
+    pd.DataFrame(grid).to_excel(buf, index=False, header=False)
+    return buf.getvalue()
+
+
+# Файл с шапкой отчёта: настоящие заголовки на 3-й строке (index 2).
+def _report_grid(n_rows: int = 3) -> list[list]:
+    header = ["doc_id", "op", "t_start", "t_end"]
+    data = [
+        [f"D{i}", "Операция", datetime(2025, 1, 1 + i, 9, 0),
+         datetime(2025, 1, 1 + i, 10, 0)]
+        for i in range(n_rows)
+    ]
+    return [
+        ["Отчёт за январь", None, None, None],
+        [None, None, None, None],
+        header,
+        *data,
+    ]
+
+
 def _small_rows(n: int = 60) -> list[dict]:
     return [
         {
@@ -59,7 +87,7 @@ async def _create_project(client, headers) -> int:
 
 
 async def _make_dataset(
-    db, project_id: int, uploaded_by: int, mapping: dict
+    db, project_id: int, uploaded_by: int, mapping: dict, header_row: int = 0
 ) -> PhysicalDataset:
     dataset = PhysicalDataset(
         project_id=project_id,
@@ -69,6 +97,7 @@ async def _make_dataset(
         file_hash="h",
         storage_path="",
         column_mapping=mapping,
+        header_row=header_row,
         total_events=0,
         total_cases=0,
         unique_activities=0,
@@ -108,6 +137,128 @@ async def test_preview_returns_columns_and_token(
     assert data["total_rows"] == 5
     assert data["preview_token"]
     assert {c["name"] for c in data["columns"]} == {"doc_id", "op", "t_start", "t_end"}
+    # Чистый файл: заголовки на первой строке, сырые строки — для пикера.
+    assert data["header_row"] == 0
+    assert data["raw_rows"][0] == ["doc_id", "op", "t_start", "t_end"]
+
+
+def test_suggest_header_row_skips_report_header() -> None:
+    raw_head = pd.DataFrame(_report_grid())
+    assert _suggest_header_row(raw_head) == 2
+    # Чистый файл — первая строка.
+    assert _suggest_header_row(pd.DataFrame([["a", "b"], [1, 2]])) == 0
+
+
+async def test_preview_suggests_header_row_for_report_file(
+    client, analyst_user, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "STORAGE_PATH", tmp_path)
+    project_id = await _create_project(client, analyst_user.headers)
+    resp = await client.post(
+        f"/api/v1/projects/{project_id}/physical-datasets/preview",
+        headers=analyst_user.headers,
+        files={"file": ("log.xlsx", _xlsx_grid_bytes(_report_grid()),
+                        "application/vnd.ms-excel")},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["header_row"] == 2
+    assert {c["name"] for c in data["columns"]} == {"doc_id", "op", "t_start", "t_end"}
+    assert data["total_rows"] == 3
+    assert data["raw_rows"][0][0] == "Отчёт за январь"
+
+
+async def test_reparse_preview_changes_header_row(
+    client, analyst_user, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "STORAGE_PATH", tmp_path)
+    project_id = await _create_project(client, analyst_user.headers)
+    preview = await client.post(
+        f"/api/v1/projects/{project_id}/physical-datasets/preview",
+        headers=analyst_user.headers,
+        files={"file": ("log.xlsx", _xlsx_grid_bytes(_report_grid()),
+                        "application/vnd.ms-excel")},
+    )
+    token = preview.json()["preview_token"]
+
+    url = f"/api/v1/projects/{project_id}/physical-datasets/preview/reparse"
+    resp = await client.post(
+        url, headers=analyst_user.headers,
+        json={"preview_token": token, "header_row": 0},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["header_row"] == 0
+    assert data["preview_token"] == token
+    assert data["columns"][0]["name"] == "Отчёт за январь"
+
+    # Строка за пределами файла → 400.
+    resp = await client.post(
+        url, headers=analyst_user.headers,
+        json={"preview_token": token, "header_row": 999},
+    )
+    assert resp.status_code == 400
+
+    # Неизвестный токен → 404.
+    resp = await client.post(
+        url, headers=analyst_user.headers,
+        json={"preview_token": "0" * 32, "header_row": 0},
+    )
+    assert resp.status_code == 404
+
+
+async def test_create_dataset_saves_header_row_and_template(
+    client, analyst_user, db_session, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "STORAGE_PATH", tmp_path)
+    monkeypatch.setattr(
+        upload_dataset_task, "delay", lambda dataset_id: SimpleNamespace(id="task-hr")
+    )
+    project_id = await _create_project(client, analyst_user.headers)
+    preview = await client.post(
+        f"/api/v1/projects/{project_id}/physical-datasets/preview",
+        headers=analyst_user.headers,
+        files={"file": ("log.xlsx", _xlsx_grid_bytes(_report_grid()),
+                        "application/vnd.ms-excel")},
+    )
+    token = preview.json()["preview_token"]
+
+    resp = await client.post(
+        f"/api/v1/projects/{project_id}/physical-datasets",
+        headers=analyst_user.headers,
+        json={
+            "name": "С шапкой",
+            "preview_token": token,
+            "column_mapping": _SMALL_MAPPING,
+            "header_row": 2,
+            "save_as_template": True,
+        },
+    )
+    assert resp.status_code == 202
+    dataset = await db_session.get(PhysicalDataset, resp.json()["id"])
+    assert dataset.header_row == 2
+
+    template = (
+        await db_session.execute(
+            select(UploadTemplate).where(UploadTemplate.project_id == project_id)
+        )
+    ).scalar_one()
+    assert template.header_row == 2
+
+
+async def test_process_upload_with_header_row(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    project_id = await _create_project(client, analyst_user.headers)
+    dataset = await _make_dataset(
+        db_session, project_id, analyst_user.id, _SMALL_MAPPING, header_row=2
+    )
+    path = tmp_path / "report.xlsx"
+    path.write_bytes(_xlsx_grid_bytes(_report_grid(4)))
+
+    await process_upload(db_session, dataset, path)
+    assert dataset.status == "ready"
+    assert dataset.total_events == 4
 
 
 async def test_create_dataset_enqueues_task(

@@ -132,6 +132,10 @@ class UploadTemplate(Base):
         String(255), nullable=False, server_default="Стандартный шаблон"
     )
     column_mapping: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    # Строка заголовков в исходном файле (0-based).
+    header_row: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
     is_default: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")
     )

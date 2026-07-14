@@ -16,12 +16,22 @@ class PreviewResponse(BaseModel):
     total_rows: int
     suggested_mapping: dict[str, str]
     preview_token: str
+    # Первые строки файла «как есть» — для пикера строки заголовков.
+    raw_rows: list[list[str]]
+    # Применённая строка заголовков (0-based; при первом preview — подсказанная).
+    header_row: int
+
+
+class PreviewReparseRequest(BaseModel):
+    preview_token: str = Field(pattern=r"^[0-9a-f]{32}$")
+    header_row: int = Field(ge=0)
 
 
 class PhysicalDatasetCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     preview_token: str
     column_mapping: dict[str, Any]
+    header_row: int = Field(default=0, ge=0)
     save_as_template: bool = False
 
 
@@ -48,6 +58,7 @@ class PhysicalDatasetResponse(BaseModel):
     health_status: str
     health_report: dict[str, Any]
     column_mapping: dict[str, Any]
+    header_row: int
     uploaded_at: datetime
     error_message: str | None
 

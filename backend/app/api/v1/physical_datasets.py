@@ -12,6 +12,7 @@ from app.schemas.physical_datasets import (
     PhysicalDatasetCreate,
     PhysicalDatasetList,
     PhysicalDatasetResponse,
+    PreviewReparseRequest,
     PreviewResponse,
     UploadTaskResponse,
 )
@@ -29,6 +30,22 @@ async def preview_dataset(
     _project: Project = Depends(require_project_owner_or_admin),
 ) -> PreviewResponse:
     return await physical_dataset_service.preview_upload(file)
+
+
+@router.post("/preview/reparse", response_model=PreviewResponse)
+async def reparse_preview(
+    payload: PreviewReparseRequest,
+    _project: Project = Depends(require_project_owner_or_admin),
+) -> PreviewResponse:
+    """Повторный разбор загруженного файла с другой строкой заголовков."""
+    try:
+        return await physical_dataset_service.reparse_preview(
+            payload.preview_token, payload.header_row
+        )
+    except EntityNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
 
 @router.post("", response_model=UploadTaskResponse, status_code=status.HTTP_202_ACCEPTED)

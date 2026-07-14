@@ -56,13 +56,34 @@ def _infer_dtype(series: pd.Series) -> str:
     return "string"
 
 
-async def preview_upload(file: UploadFile) -> PreviewResponse:
-    """Сохраняет файл во временное хранилище, возвращает превью и маппинг."""
-    token = uuid4().hex
-    tmp_path = _tmp_dir() / f"{token}.xlsx"
-    tmp_path.write_bytes(await file.read())
+# Сколько первых строк файла показываем в пикере строки заголовков.
+_RAW_PREVIEW_ROWS = 15
 
-    raw = pd.read_excel(tmp_path, sheet_name=0)
+
+def _suggest_header_row(raw_head: pd.DataFrame) -> int:
+    """Подсказка строки заголовков: первая строка с максимумом непустых ячеек
+    (шапка отчёта обычно заполнена частично, строка заголовков — целиком)."""
+    counts = raw_head.notna().sum(axis=1)
+    if counts.empty:
+        return 0
+    return int(counts.idxmax())
+
+
+def _build_preview(tmp_path: Path, token: str, header_row: int | None) -> PreviewResponse:
+    """Собирает превью: сырые строки для пикера заголовка + разбор файла
+    с заданной (или подсказанной) строкой заголовков."""
+    raw_head = pd.read_excel(
+        tmp_path, sheet_name=0, header=None, nrows=_RAW_PREVIEW_ROWS
+    )
+    raw_rows: list[list[str]] = raw_head.fillna("").astype(str).values.tolist()
+    if header_row is None:
+        header_row = _suggest_header_row(raw_head)
+    elif header_row >= len(raw_head):
+        raise ValueError(
+            f"Строка заголовков {header_row + 1} выходит за пределы файла"
+        )
+
+    raw = pd.read_excel(tmp_path, sheet_name=0, header=header_row)
     columns = [
         ColumnInfo(
             name=str(col),
@@ -80,7 +101,27 @@ async def preview_upload(file: UploadFile) -> PreviewResponse:
         total_rows=int(len(raw)),
         suggested_mapping=suggest_column_mapping([str(c) for c in raw.columns]),
         preview_token=token,
+        raw_rows=raw_rows,
+        header_row=header_row,
     )
+
+
+async def preview_upload(file: UploadFile) -> PreviewResponse:
+    """Сохраняет файл во временное хранилище, возвращает превью и маппинг.
+    Строка заголовков подбирается автоматически (уточняется через reparse)."""
+    token = uuid4().hex
+    tmp_path = _tmp_dir() / f"{token}.xlsx"
+    tmp_path.write_bytes(await file.read())
+    return _build_preview(tmp_path, token, header_row=None)
+
+
+async def reparse_preview(preview_token: str, header_row: int) -> PreviewResponse:
+    """Повторный разбор ранее загруженного файла с другой строкой заголовков
+    (без повторной загрузки файла)."""
+    tmp_path = _tmp_dir() / f"{preview_token}.xlsx"
+    if not tmp_path.exists():
+        raise EntityNotFoundError("preview_token недействителен или истёк")
+    return _build_preview(tmp_path, preview_token, header_row)
 
 
 async def create_physical_dataset(
@@ -107,6 +148,7 @@ async def create_physical_dataset(
         file_hash=hashlib.sha256(content).hexdigest(),
         storage_path="",
         column_mapping=payload.column_mapping,
+        header_row=payload.header_row,
         total_events=0,
         total_cases=0,
         unique_activities=0,
@@ -129,6 +171,7 @@ async def create_physical_dataset(
                 project_id=project_id,
                 name=f"Шаблон: {payload.name}",
                 column_mapping=payload.column_mapping,
+                header_row=payload.header_row,
                 is_default=False,
             )
         )
@@ -154,7 +197,7 @@ async def process_upload(
     await db.commit()
 
     try:
-        df = load_event_log(file_path, dataset.column_mapping)
+        df = load_event_log(file_path, dataset.column_mapping, dataset.header_row)
     except Exception as exc:  # noqa: BLE001 — любая ошибка парсинга → failed
         dataset.status = "failed"
         dataset.error_message = f"Ошибка чтения файла: {exc}"

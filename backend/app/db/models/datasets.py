@@ -48,6 +48,10 @@ class PhysicalDataset(Base):
     file_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
     column_mapping: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    # Строка заголовков в исходном файле (0-based).
+    header_row: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
     total_events: Mapped[int] = mapped_column(Integer, nullable=False)
     total_cases: Mapped[int] = mapped_column(Integer, nullable=False)
     unique_activities: Mapped[int] = mapped_column(Integer, nullable=False)

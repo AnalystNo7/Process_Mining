@@ -21,6 +21,7 @@ import {
   createDataset,
   getDataset,
   previewDataset,
+  reparsePreview,
   type PreviewResponse,
 } from '@/api/physicalDatasets';
 import { getErrorMessage, notifyError } from '@/lib/notify';
@@ -35,6 +36,11 @@ const LOGICAL_FIELDS: { key: string; label: string; required: boolean }[] = [
   { key: 'resource', label: 'Исполнитель', required: false },
   { key: 'department', label: 'Подразделение', required: false },
 ];
+
+interface RawRowRecord {
+  __row: number;
+  cells: string[];
+}
 
 interface MappingFormValues {
   name: string;
@@ -63,6 +69,16 @@ export function UploadWizard({ projectId, open, onClose }: UploadWizardProps) {
     onClose();
   };
 
+  // Явно выставляет все ключи маппинга: отсутствующие в подсказке — очищаются
+  // (после смены строки заголовков старые имена колонок недействительны).
+  const applySuggestedMapping = (suggested: Record<string, string>) => {
+    form.setFieldsValue({
+      mapping: Object.fromEntries(
+        LOGICAL_FIELDS.map((field) => [field.key, suggested[field.key]])
+      ),
+    });
+  };
+
   const previewMutation = useMutation({
     mutationFn: (file: File) => previewDataset(projectId, file),
     onSuccess: (data, file) => {
@@ -70,11 +86,25 @@ export function UploadWizard({ projectId, open, onClose }: UploadWizardProps) {
       form.setFieldsValue({
         name: file.name.replace(/\.xlsx$/i, ''),
         save_as_template: false,
-        mapping: data.suggested_mapping,
       });
+      applySuggestedMapping(data.suggested_mapping);
       setStep(1);
     },
     onError: (error) => notifyError(getErrorMessage(error, 'Не удалось прочитать файл')),
+  });
+
+  const reparseMutation = useMutation({
+    mutationFn: (headerRow: number) =>
+      reparsePreview(projectId, {
+        preview_token: preview?.preview_token ?? '',
+        header_row: headerRow,
+      }),
+    onSuccess: (data) => {
+      setPreview(data);
+      applySuggestedMapping(data.suggested_mapping);
+    },
+    onError: (error) =>
+      notifyError(getErrorMessage(error, 'Не удалось перечитать файл')),
   });
 
   const createMutation = useMutation({
@@ -89,6 +119,7 @@ export function UploadWizard({ projectId, open, onClose }: UploadWizardProps) {
         name: values.name,
         preview_token: preview?.preview_token ?? '',
         column_mapping: mapping,
+        header_row: preview?.header_row ?? 0,
         save_as_template: values.save_as_template,
       });
     },
@@ -190,6 +221,56 @@ export function UploadWizard({ projectId, open, onClose }: UploadWizardProps) {
 
       {step === 1 && preview && (
         <div>
+          <Typography.Paragraph type="secondary">
+            Отметьте строку файла, в которой находятся названия колонок
+            (подсказка выбрана автоматически) — всё выше неё будет отброшено.
+          </Typography.Paragraph>
+          <Table
+            size="small"
+            scroll={{ x: true }}
+            pagination={false}
+            showHeader={false}
+            style={{ marginBottom: 16 }}
+            rowKey="__row"
+            loading={reparseMutation.isPending}
+            rowSelection={{
+              type: 'radio',
+              columnTitle: 'Заголовки',
+              selectedRowKeys: [preview.header_row],
+              onChange: (keys) => {
+                const row = Number(keys[0]);
+                if (row !== preview.header_row) {
+                  reparseMutation.mutate(row);
+                }
+              },
+            }}
+            onRow={(record) => ({
+              onClick: () => {
+                if (record.__row !== preview.header_row) {
+                  reparseMutation.mutate(record.__row);
+                }
+              },
+              style: { cursor: 'pointer' },
+            })}
+            dataSource={preview.raw_rows.map(
+              (cells, index): RawRowRecord => ({ __row: index, cells })
+            )}
+            columns={[
+              {
+                key: '__num',
+                width: 48,
+                render: (_: unknown, record: RawRowRecord) => (
+                  <Typography.Text type="secondary">{record.__row + 1}</Typography.Text>
+                ),
+              },
+              ...(preview.raw_rows[0] ?? []).map((_, colIndex) => ({
+                key: `col_${colIndex}`,
+                ellipsis: true,
+                render: (_: unknown, record: RawRowRecord) =>
+                  record.cells[colIndex] || '—',
+              })),
+            ]}
+          />
           <Typography.Paragraph type="secondary">
             Найдено колонок: {preview.columns.length}, строк: {preview.total_rows}.
             Проверьте предпросмотр и сопоставьте колонки файла стандартным полям.
