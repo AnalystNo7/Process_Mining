@@ -112,8 +112,8 @@ def test_process_subtabs_have_default_widgets() -> None:
 
 
 def test_process_duration_has_combo() -> None:
-    """T45 + комбо: на process.duration лежат 5 виджетов длительности —
-    боксплот, CDF, две теплокарты узких мест (по длительности и по частоте),
+    """T45 + комбо: на process.duration лежат 4 виджета длительности —
+    боксплот, CDF, теплокарта узких мест (ранжирование переключается меню),
     работа/ожидание."""
     duration = [w for w in _PROCESS_WIDGETS if w["tab"] == "process.duration"]
     types = {w["widget_type"] for w in duration}
@@ -132,16 +132,16 @@ def test_process_duration_has_combo() -> None:
     # CDF имеет цель SLA по умолчанию.
     cdf = next(w for w in duration if w["widget_type"] == "case_duration_cdf")
     assert cdf["config"]["sla_target_hours"] == 24
-    # Две теплокарты: одна по длительности, одна по частоте.
+    # Одна теплокарта, дефолт — по длительности (частота — через меню в шапке).
     heatmaps = [
         w for w in duration if w["widget_type"] == "duration_bottleneck_heatmap"
     ]
-    assert len(heatmaps) == 2
-    assert {h["config"]["sort_by"] for h in heatmaps} == {"duration", "frequency"}
-    assert all(h["config"]["limit"] == 10 for h in heatmaps)
+    assert len(heatmaps) == 1
+    assert heatmaps[0]["config"]["sort_by"] == "duration"
+    assert heatmaps[0]["config"]["limit"] == 10
 
 
 def test_default_widgets_count() -> None:
-    """Комбо: 13 overview + 7 process (rework, distribution, 5×duration)
-    + 1 details = 21 виджет."""
-    assert len(_DEFAULT_WIDGETS) == 21
+    """Комбо: 13 overview + 6 process (rework, distribution, 4×duration)
+    + 1 details = 20 виджетов."""
+    assert len(_DEFAULT_WIDGETS) == 20
