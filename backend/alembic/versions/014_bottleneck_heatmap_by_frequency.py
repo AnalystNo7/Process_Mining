@@ -37,7 +37,7 @@ def upgrade() -> None:
         sa.text(
             """
             UPDATE core.dashboard_widgets
-            SET config = config || '{"sort_by":"duration","limit":10}'::jsonb,
+            SET config = config || '{"sort_by": "duration", "limit": 10}'::jsonb,
                 grid_height = 8,
                 title = 'Узкие места: топ-10 операций по длительности'
             WHERE tab = :tab
@@ -69,8 +69,8 @@ def upgrade() -> None:
              grid_x, grid_y, grid_width, grid_height)
         SELECT :dashboard_id, 'duration_bottleneck_heatmap',
                'Узкие места: топ-10 операций по частоте',
-               '{"dimension":"department","activity_level":"raw",'
-               '"sort_by":"frequency","limit":10}'::jsonb,
+               '{"dimension": "department", "activity_level": "raw",'
+               ' "sort_by": "frequency", "limit": 10}'::jsonb,
                :tab, true, 0, 20, 12, 8
         WHERE NOT EXISTS (
             SELECT 1 FROM core.dashboard_widgets
