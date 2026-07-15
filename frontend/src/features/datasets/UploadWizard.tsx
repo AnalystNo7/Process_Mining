@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Button,
   Checkbox,
+  Collapse,
   Form,
   Input,
   Modal,
@@ -60,6 +61,8 @@ export function UploadWizard({ projectId, open, onClose }: UploadWizardProps) {
   const [step, setStep] = useState(0);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [datasetId, setDatasetId] = useState<number | null>(null);
+  // Блок выбора строки заголовков раскрыт, когда заголовки не на 1-й строке.
+  const [headerPickerOpen, setHeaderPickerOpen] = useState(false);
 
   const handleClose = () => {
     setStep(0);
@@ -147,6 +150,12 @@ export function UploadWizard({ projectId, open, onClose }: UploadWizardProps) {
       void queryClient.invalidateQueries({ queryKey: ['datasets', projectId] });
     }
   }, [dataset, projectId, queryClient]);
+
+  // Раскрываем выбор строки заголовков, только если они не на 1-й строке
+  // (при первом preview и после каждой смены листа/строки).
+  useEffect(() => {
+    setHeaderPickerOpen((preview?.header_row ?? 0) > 0);
+  }, [preview?.header_row, preview?.sheet_name]);
 
   const columnOptions =
     preview?.columns.map((column) => ({ value: column.name, label: column.name })) ?? [];
@@ -241,60 +250,79 @@ export function UploadWizard({ projectId, open, onClose }: UploadWizardProps) {
               />
             </Form.Item>
           )}
-          <Typography.Paragraph type="secondary">
-            Отметьте строку файла, в которой находятся названия колонок
-            (подсказка выбрана автоматически) — всё выше неё будет отброшено.
-          </Typography.Paragraph>
-          <Table
+          <Collapse
+            ghost
             size="small"
-            scroll={{ x: true }}
-            pagination={false}
-            showHeader={false}
             style={{ marginBottom: 16 }}
-            rowKey="__row"
-            loading={reparseMutation.isPending}
-            rowSelection={{
-              type: 'radio',
-              columnTitle: 'Заголовки',
-              selectedRowKeys: [preview.header_row],
-              onChange: (keys) => {
-                const row = Number(keys[0]);
-                if (row !== preview.header_row) {
-                  reparseMutation.mutate({
-                    sheet_name: preview.sheet_name,
-                    header_row: row,
-                  });
-                }
-              },
-            }}
-            onRow={(record) => ({
-              onClick: () => {
-                if (record.__row !== preview.header_row) {
-                  reparseMutation.mutate({
-                    sheet_name: preview.sheet_name,
-                    header_row: record.__row,
-                  });
-                }
-              },
-              style: { cursor: 'pointer' },
-            })}
-            dataSource={preview.raw_rows.map(
-              (cells, index): RawRowRecord => ({ __row: index, cells })
-            )}
-            columns={[
+            activeKey={headerPickerOpen ? ['header'] : []}
+            onChange={(keys) => setHeaderPickerOpen(keys.includes('header'))}
+            items={[
               {
-                key: '__num',
-                width: 48,
-                render: (_: unknown, record: RawRowRecord) => (
-                  <Typography.Text type="secondary">{record.__row + 1}</Typography.Text>
+                key: 'header',
+                label: `Строка заголовков: ${preview.header_row + 1}`,
+                children: (
+                  <>
+                    <Typography.Paragraph type="secondary">
+                      Отметьте строку файла, в которой находятся названия колонок
+                      (подсказка выбрана автоматически) — всё выше неё будет
+                      отброшено.
+                    </Typography.Paragraph>
+                    <Table
+                      size="small"
+                      scroll={{ x: true }}
+                      pagination={false}
+                      showHeader={false}
+                      rowKey="__row"
+                      loading={reparseMutation.isPending}
+                      rowSelection={{
+                        type: 'radio',
+                        columnTitle: 'Заголовки',
+                        selectedRowKeys: [preview.header_row],
+                        onChange: (keys) => {
+                          const row = Number(keys[0]);
+                          if (row !== preview.header_row) {
+                            reparseMutation.mutate({
+                              sheet_name: preview.sheet_name,
+                              header_row: row,
+                            });
+                          }
+                        },
+                      }}
+                      onRow={(record) => ({
+                        onClick: () => {
+                          if (record.__row !== preview.header_row) {
+                            reparseMutation.mutate({
+                              sheet_name: preview.sheet_name,
+                              header_row: record.__row,
+                            });
+                          }
+                        },
+                        style: { cursor: 'pointer' },
+                      })}
+                      dataSource={preview.raw_rows.map(
+                        (cells, index): RawRowRecord => ({ __row: index, cells })
+                      )}
+                      columns={[
+                        {
+                          key: '__num',
+                          width: 48,
+                          render: (_: unknown, record: RawRowRecord) => (
+                            <Typography.Text type="secondary">
+                              {record.__row + 1}
+                            </Typography.Text>
+                          ),
+                        },
+                        ...(preview.raw_rows[0] ?? []).map((_, colIndex) => ({
+                          key: `col_${colIndex}`,
+                          ellipsis: true,
+                          render: (_: unknown, record: RawRowRecord) =>
+                            record.cells[colIndex] || '—',
+                        })),
+                      ]}
+                    />
+                  </>
                 ),
               },
-              ...(preview.raw_rows[0] ?? []).map((_, colIndex) => ({
-                key: `col_${colIndex}`,
-                ellipsis: true,
-                render: (_: unknown, record: RawRowRecord) =>
-                  record.cells[colIndex] || '—',
-              })),
             ]}
           />
           <Typography.Paragraph type="secondary">
