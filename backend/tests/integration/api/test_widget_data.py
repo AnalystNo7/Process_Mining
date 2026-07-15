@@ -44,10 +44,10 @@ def test_format_value_none() -> None:
 
 
 def test_pick_duration_unit() -> None:
-    assert _pick_duration_unit(89) == ("с", 1.0)
-    assert _pick_duration_unit(100) == ("мин", 60.0)
-    assert _pick_duration_unit(2 * 3600) == ("ч", 3600.0)
-    assert _pick_duration_unit(3 * 86400) == ("сут", 86400.0)
+    assert _pick_duration_unit(89) == ("секунды", 1.0)
+    assert _pick_duration_unit(100) == ("минуты", 60.0)
+    assert _pick_duration_unit(2 * 3600) == ("часы", 3600.0)
+    assert _pick_duration_unit(3 * 86400) == ("дни", 86400.0)
 
 
 def _xlsx() -> bytes:
@@ -136,9 +136,9 @@ async def test_monthly_dynamics_widget_data(
     assert "data" in data
     assert "line_data" in data
     assert sum(point["y"] for point in data["data"]) == 60
-    # Линия длительности: подписана единицей, hover — по точкам.
+    # Линия длительности: подписана только единицей, hover — по точкам.
     assert data["line_unit"]
-    assert data["line_label"].startswith("Средняя длительность,")
+    assert data["line_label"] == data["line_unit"]
     assert len(data["line_text"]) == len(data["data"])
 
 

@@ -57,12 +57,12 @@ def format_duration_seconds(seconds: float) -> str:
 def _pick_duration_unit(max_seconds: float) -> tuple[str, float]:
     """Единица для оси длительности по масштабу серии: (подпись, делитель)."""
     if max_seconds < 90:
-        return "с", 1.0
+        return "секунды", 1.0
     if max_seconds < 90 * 60:
-        return "мин", 60.0
+        return "минуты", 60.0
     if max_seconds < 48 * 3600:
-        return "ч", 3600.0
-    return "сут", 86400.0
+        return "часы", 3600.0
+    return "дни", 86400.0
 
 
 def format_value(value: Any, fmt: str) -> str:
@@ -180,7 +180,7 @@ async def _monthly_dynamics(
         "line_text": line_text,
         "x_label": "Месяц",
         "y_label": "Количество операций",
-        "line_label": f"Средняя длительность, {unit}",
+        "line_label": unit,
         "line_unit": unit,
     }
 
