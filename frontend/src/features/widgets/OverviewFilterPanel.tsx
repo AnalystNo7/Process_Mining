@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import type { Dashboard } from '@/api/dashboards';
 
 type Rework = 'all' | 'with' | 'without';
-type Granularity = 'D' | 'W' | 'M' | 'Q';
+type Granularity = 'D' | 'W' | 'M' | 'Q' | 'Y';
 
 interface FilterState {
   eventsRange: [number, number];
@@ -32,7 +32,7 @@ function readState(dashboard: Dashboard | undefined): FilterState {
   return {
     eventsRange: [epc?.min ?? EVENTS_MIN, epc?.max ?? EVENTS_MAX],
     rework: wr === true ? 'with' : wr === false ? 'without' : 'all',
-    granularity: (['D', 'W', 'M', 'Q'] as const).includes(gran) ? gran : 'M',
+    granularity: (['D', 'W', 'M', 'Q', 'Y'] as const).includes(gran) ? gran : 'M',
     dateRange: [dr?.from ? dayjs(dr.from) : null, dr?.to ? dayjs(dr.to) : null],
   };
 }
@@ -118,6 +118,7 @@ export function OverviewFilterPanel({
               { label: 'Неделя', value: 'W' },
               { label: 'Месяц', value: 'M' },
               { label: 'Квартал', value: 'Q' },
+              { label: 'Год', value: 'Y' },
             ]}
           />
         </Form.Item>

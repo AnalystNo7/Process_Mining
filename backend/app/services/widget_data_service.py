@@ -68,7 +68,11 @@ def format_value(value: Any, fmt: str) -> str:
     return str(value)
 
 
-_GRANULARITY_WIDGETS = {"operations_dynamics", "case_flow_cumulative"}
+_GRANULARITY_WIDGETS = {
+    "monthly_dynamics",
+    "operations_dynamics",
+    "case_flow_cumulative",
+}
 
 
 def _dashboard_granularity(dashboard: Dashboard) -> str:
@@ -76,7 +80,7 @@ def _dashboard_granularity(dashboard: Dashboard) -> str:
     if not dashboard.global_filters:
         return "M"
     value = str(dashboard.global_filters.get("granularity", "M")).upper()
-    return value if value in {"D", "W", "M", "Q"} else "M"
+    return value if value in {"D", "W", "M", "Q", "Y"} else "M"
 
 
 async def _resolve_filter(
@@ -134,7 +138,11 @@ async def _monthly_dynamics(
     event_filter: EventFilter | None,
 ) -> dict[str, Any]:
     df = await analytics_service.load_vd_dataframe(db, virtual, event_filter)
-    result = compute_monthly_dynamics(df, activity_filter=config.get("activity_filter"))
+    result = compute_monthly_dynamics(
+        df,
+        activity_filter=config.get("activity_filter"),
+        granularity=str(config.get("granularity", "M")),
+    )
     return {
         "data": [
             {"x": str(row["month"]), "y": int(row["n_events"])}

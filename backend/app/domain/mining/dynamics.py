@@ -1,8 +1,8 @@
 """Динамика операций по времени (см. 02_DOMAIN_LOGIC.md).
 
 Гранулярность задаётся одной буквой Pandas period freq: D (день), W (неделя),
-M (месяц), Q (квартал). Время приводится к МСК до бакетизации, чтобы границы
-бакетов совпадали с человеческими сутками/неделями."""
+M (месяц), Q (квартал), Y (год). Время приводится к МСК до бакетизации, чтобы
+границы бакетов совпадали с человеческими сутками/неделями."""
 
 from typing import Literal
 
@@ -10,9 +10,9 @@ import pandas as pd
 
 from app.domain.mining.duration import compute_sojourn_time
 
-Granularity = Literal["D", "W", "M", "Q"]
+Granularity = Literal["D", "W", "M", "Q", "Y"]
 
-_PERIOD_FREQ: dict[str, str] = {"D": "D", "W": "W-MON", "M": "M", "Q": "Q"}
+_PERIOD_FREQ: dict[str, str] = {"D": "D", "W": "W-MON", "M": "M", "Q": "Q", "Y": "Y"}
 
 
 def _to_msk_naive(series: pd.Series) -> pd.Series:
@@ -25,9 +25,12 @@ def _period_label(series: pd.Series, granularity: str) -> pd.Series:
 
 
 def compute_monthly_dynamics(
-    df: pd.DataFrame, activity_filter: str | None = None
+    df: pd.DataFrame,
+    activity_filter: str | None = None,
+    granularity: str = "M",
 ) -> pd.DataFrame:
-    """Помесячная динамика для устаревшего эндпоинта /monthly-dynamics."""
+    """Динамика по времени с выбранной гранулярностью (D/W/M/Q/Y). Колонка
+    результата исторически называется ``month`` (маппится в ось X виджета)."""
     empty = pd.DataFrame(columns=["month", "n_events", "n_cases", "avg_sojourn_seconds"])
     if len(df) == 0:
         return empty
@@ -41,7 +44,7 @@ def compute_monthly_dynamics(
     if "sojourn_seconds" not in work.columns:
         work = compute_sojourn_time(work)
 
-    work["month"] = _period_label(work["timestamp_start"], "M")
+    work["month"] = _period_label(work["timestamp_start"], granularity)
     return (
         work.groupby("month")
         .agg(

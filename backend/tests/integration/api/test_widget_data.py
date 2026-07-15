@@ -127,6 +127,40 @@ async def test_monthly_dynamics_widget_data(
     assert sum(point["y"] for point in data["data"]) == 60
 
 
+async def test_monthly_dynamics_respects_granularity(
+    client, analyst_user, db_session, tmp_path
+) -> None:
+    dashboard_id, _ = await _setup(
+        client, analyst_user.headers, db_session, analyst_user.id, tmp_path
+    )
+    widget = await client.post(
+        f"/api/v1/dashboards/{dashboard_id}/widgets",
+        headers=analyst_user.headers,
+        json={"widget_type": "monthly_dynamics", "title": "Динамика", "config": {}},
+    )
+    wid = widget.json()["id"]
+
+    # По умолчанию (месяц): все события января 2025 — один бакет.
+    resp = await client.get(
+        f"/api/v1/widgets/{wid}/data", headers=analyst_user.headers
+    )
+    assert len(resp.json()["data"]) == 1
+
+    # Переключаем гранулярность дашборда на «день» → 15 суточных бакетов.
+    patched = await client.patch(
+        f"/api/v1/dashboards/{dashboard_id}",
+        headers=analyst_user.headers,
+        json={"global_filters": {"granularity": "D"}},
+    )
+    assert patched.status_code == 200
+    resp = await client.get(
+        f"/api/v1/widgets/{wid}/data", headers=analyst_user.headers
+    )
+    data = resp.json()
+    assert len(data["data"]) == 15
+    assert sum(point["y"] for point in data["data"]) == 60
+
+
 async def test_operations_dynamics_widget_data(
     client, analyst_user, db_session, tmp_path
 ) -> None:
