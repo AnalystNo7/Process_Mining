@@ -75,13 +75,15 @@ def _suggest_header_row(raw_head: pd.DataFrame) -> int:
 
 
 def _sheet_infos(tmp_path: Path) -> list[SheetInfo]:
-    """Список листов файла с числом строк данных на каждом."""
-    xl = pd.ExcelFile(tmp_path)
-    infos: list[SheetInfo] = []
-    for name in xl.sheet_names:
-        rows = int(len(xl.parse(name, header=None)))
-        infos.append(SheetInfo(name=str(name), rows=rows))
-    return infos
+    """Список листов файла с числом строк данных на каждом.
+
+    ExcelFile закрываем явно: иначе на Windows незакрытый дескриптор блокирует
+    последующее удаление temp-файла (WinError 32) при создании датасета."""
+    with pd.ExcelFile(tmp_path) as xl:
+        return [
+            SheetInfo(name=str(name), rows=int(len(xl.parse(name, header=None))))
+            for name in xl.sheet_names
+        ]
 
 
 def _suggest_sheet(infos: list[SheetInfo]) -> str:
@@ -202,7 +204,12 @@ async def create_physical_dataset(
     final_path = project_dir / f"physical_{dataset.id}.xlsx"
     final_path.write_bytes(content)
     dataset.storage_path = str(final_path)
-    tmp_path.unlink(missing_ok=True)
+    # Уборка temp-файла — best-effort: если он кратко занят (Windows —
+    # антивирус/индексатор), это не повод срывать уже успешную загрузку.
+    try:
+        tmp_path.unlink(missing_ok=True)
+    except OSError:
+        pass
 
     if payload.save_as_template:
         db.add(
