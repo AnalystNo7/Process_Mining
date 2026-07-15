@@ -136,9 +136,7 @@ async def test_monthly_dynamics_widget_data(
     assert "data" in data
     assert "line_data" in data
     assert sum(point["y"] for point in data["data"]) == 60
-    # Линия длительности: подписана только единицей, hover — по точкам.
-    assert data["line_unit"]
-    assert data["line_label"] == data["line_unit"]
+    # Линия длительности: без текстовой подписи единицы, hover — по точкам.
     assert len(data["line_text"]) == len(data["data"])
 
 

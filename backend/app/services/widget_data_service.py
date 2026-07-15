@@ -156,7 +156,7 @@ async def _monthly_dynamics(
     )
     secs = result["avg_sojourn_seconds"]
     valid = secs.dropna()
-    unit, divisor = _pick_duration_unit(float(valid.max()) if len(valid) else 0.0)
+    _, divisor = _pick_duration_unit(float(valid.max()) if len(valid) else 0.0)
 
     line_data: list[dict[str, Any]] = []
     line_text: list[str] = []
@@ -180,8 +180,6 @@ async def _monthly_dynamics(
         "line_text": line_text,
         "x_label": "Месяц",
         "y_label": "Количество операций",
-        "line_label": unit,
-        "line_unit": unit,
     }
 
 

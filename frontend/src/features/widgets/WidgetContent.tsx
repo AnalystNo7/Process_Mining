@@ -114,8 +114,6 @@ function MonthlyDynamics({
   data: {
     data: XYPoint[];
     line_data: XYPoint[];
-    line_label: string;
-    line_unit?: string;
     line_text?: string[];
   };
 }) {
@@ -132,11 +130,11 @@ function MonthlyDynamics({
       y: data.line_data.map((p) => p.y),
       type: 'scatter',
       mode: 'lines+markers',
-      name: data.line_label,
       yaxis: 'y2',
       line: { color: '#fa8c16' },
+      showlegend: false,
       text: data.line_text,
-      hovertemplate: '%{text}<extra>%{fullData.name}</extra>',
+      hovertemplate: '%{text}<extra></extra>',
     },
   ];
   const layout: Partial<Layout> = {
@@ -146,7 +144,6 @@ function MonthlyDynamics({
     yaxis2: {
       overlaying: 'y',
       side: 'right',
-      title: data.line_unit ? { text: data.line_unit } : undefined,
     },
   };
   return (
