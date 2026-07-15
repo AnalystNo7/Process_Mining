@@ -5,7 +5,11 @@ import pandas as pd
 
 from app.db.models.datasets import PhysicalDataset
 from app.services.physical_dataset_service import process_upload
-from app.services.widget_data_service import format_duration_seconds, format_value
+from app.services.widget_data_service import (
+    _pick_duration_unit,
+    format_duration_seconds,
+    format_value,
+)
 
 _MAPPING = {
     "case_id": "doc_id",
@@ -37,6 +41,13 @@ def test_format_value_duration() -> None:
 
 def test_format_value_none() -> None:
     assert format_value(None, "number") == "—"
+
+
+def test_pick_duration_unit() -> None:
+    assert _pick_duration_unit(89) == ("с", 1.0)
+    assert _pick_duration_unit(100) == ("мин", 60.0)
+    assert _pick_duration_unit(2 * 3600) == ("ч", 3600.0)
+    assert _pick_duration_unit(3 * 86400) == ("сут", 86400.0)
 
 
 def _xlsx() -> bytes:
@@ -125,6 +136,10 @@ async def test_monthly_dynamics_widget_data(
     assert "data" in data
     assert "line_data" in data
     assert sum(point["y"] for point in data["data"]) == 60
+    # Линия длительности: подписана единицей, hover — по точкам.
+    assert data["line_unit"]
+    assert data["line_label"].startswith("Средняя длительность,")
+    assert len(data["line_text"]) == len(data["data"])
 
 
 async def test_monthly_dynamics_respects_granularity(

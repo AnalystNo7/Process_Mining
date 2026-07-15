@@ -54,6 +54,17 @@ def format_duration_seconds(seconds: float) -> str:
     return f"{days}д {hours}ч" if hours else f"{days}д"
 
 
+def _pick_duration_unit(max_seconds: float) -> tuple[str, float]:
+    """Единица для оси длительности по масштабу серии: (подпись, делитель)."""
+    if max_seconds < 90:
+        return "с", 1.0
+    if max_seconds < 90 * 60:
+        return "мин", 60.0
+    if max_seconds < 48 * 3600:
+        return "ч", 3600.0
+    return "сут", 86400.0
+
+
 def format_value(value: Any, fmt: str) -> str:
     if value is None:
         return "—"
@@ -143,18 +154,34 @@ async def _monthly_dynamics(
         activity_filter=config.get("activity_filter"),
         granularity=str(config.get("granularity", "M")),
     )
+    secs = result["avg_sojourn_seconds"]
+    valid = secs.dropna()
+    unit, divisor = _pick_duration_unit(float(valid.max()) if len(valid) else 0.0)
+
+    line_data: list[dict[str, Any]] = []
+    line_text: list[str] = []
+    for _, row in result.iterrows():
+        sec = row["avg_sojourn_seconds"]
+        if pd.isna(sec):
+            line_data.append({"x": str(row["month"]), "y": None})
+            line_text.append("—")
+        else:
+            line_data.append(
+                {"x": str(row["month"]), "y": round(float(sec) / divisor, 2)}
+            )
+            line_text.append(format_duration_seconds(float(sec)))
+
     return {
         "data": [
             {"x": str(row["month"]), "y": int(row["n_events"])}
             for _, row in result.iterrows()
         ],
-        "line_data": [
-            {"x": str(row["month"]), "y": float(row["avg_sojourn_seconds"])}
-            for _, row in result.iterrows()
-        ],
+        "line_data": line_data,
+        "line_text": line_text,
         "x_label": "Месяц",
         "y_label": "Количество операций",
-        "line_label": "Средняя длительность с учётом перехода",
+        "line_label": f"Средняя длительность, {unit}",
+        "line_unit": unit,
     }
 
 

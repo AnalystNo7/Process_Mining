@@ -111,7 +111,13 @@ function BarOrLine({
 function MonthlyDynamics({
   data,
 }: {
-  data: { data: XYPoint[]; line_data: XYPoint[]; line_label: string };
+  data: {
+    data: XYPoint[];
+    line_data: XYPoint[];
+    line_label: string;
+    line_unit?: string;
+    line_text?: string[];
+  };
 }) {
   const traces = [
     {
@@ -129,13 +135,19 @@ function MonthlyDynamics({
       name: data.line_label,
       yaxis: 'y2',
       line: { color: '#fa8c16' },
+      text: data.line_text,
+      hovertemplate: '%{text}<extra>%{fullData.name}</extra>',
     },
   ];
   const layout: Partial<Layout> = {
     ...BASE_LAYOUT,
     showlegend: true,
     legend: { orientation: 'h' },
-    yaxis2: { overlaying: 'y', side: 'right' },
+    yaxis2: {
+      overlaying: 'y',
+      side: 'right',
+      title: data.line_unit ? { text: data.line_unit } : undefined,
+    },
   };
   return (
     <PlotBox>
