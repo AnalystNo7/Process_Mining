@@ -106,7 +106,8 @@ docs/                # ТЗ: 00_OVERVIEW … 07_ROADMAP + tasks/T01–T40 + diag
 golden_data/         # synthetic_log.xlsx (~2.5 МБ, обезличенный лог TESSA) +
                      # expected_metrics.json (1328 кейсов, 25 606 событий, допуск ±1%)
 scripts/             # write_manifest.py, verify_backup.py (бэкапы)
-harness/             # эта карта
+harness/             # карта (этот файл), журналы DECISIONS.md/LESSONS.md,
+                     # templates/ (BRIEF.md, PLAN.md — цикл задачи из CLAUDE.md)
 ```
 
 ## Ключевые модули и точки входа
