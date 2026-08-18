@@ -10,6 +10,7 @@ import { Button, Space, Tooltip } from 'antd';
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import type { CytoscapeElement } from '@/api/analytics';
 
@@ -239,28 +240,27 @@ export function ProcessGraph({
       cy.destroy();
       cyRef.current = null;
     };
-  }, [elements]);
+    // expanded в зависимостях: полноэкранный режим рендерится через портал,
+    // контейнер при входе/выходе монтируется заново — cytoscape нужно
+    // пересоздать в новом узле. Заодно это сбрасывает инлайновую ширину,
+    // которую cytoscape зашивает внутрь контейнера (без пересоздания она
+    // переживала выход и распирала карточку шире flex-ряда).
+  }, [elements, expanded]);
 
-  // При разворачивании/сворачивании контейнер меняет размер — пересчитываем
-  // размеры cytoscape и вписываем граф заново.
-  useEffect(() => {
-    const cy = cyRef.current;
-    if (!cy) return;
-    const id = requestAnimationFrame(() => {
-      cy.resize();
-      smartFit(cy);
-    });
-    return () => cancelAnimationFrame(id);
-  }, [expanded]);
-
-  // Esc — выход из полноэкранного режима.
+  // Esc — выход из полноэкранного режима; заодно запираем прокрутку
+  // страницы под оверлеем, чтобы после выхода не оказаться в другом месте.
   useEffect(() => {
     if (!expanded) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setExpanded(false);
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [expanded]);
 
   useEffect(() => {
@@ -338,7 +338,7 @@ export function ProcessGraph({
         ? { height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }
         : {};
 
-  return (
+  const content = (
     <div style={wrapperStyle}>
       <div
         style={{
@@ -361,4 +361,8 @@ export function ProcessGraph({
       />
     </div>
   );
+
+  // Полноэкранный режим — через портал в body: оверлей не зависит от
+  // overflow/transform/stacking предков и не оставляет следов в карточке.
+  return expanded ? createPortal(content, document.body) : content;
 }
