@@ -107,7 +107,9 @@ golden_data/         # synthetic_log.xlsx (~2.5 МБ, обезличенный �
                      # expected_metrics.json (1328 кейсов, 25 606 событий, допуск ±1%)
 scripts/             # write_manifest.py, verify_backup.py (бэкапы)
 harness/             # карта (этот файл), журналы DECISIONS.md/LESSONS.md,
-                     # templates/ (BRIEF.md, PLAN.md — цикл задачи из CLAUDE.md)
+                     # REQUIREMENTS.md (реестр требований, 81 карточка),
+                     # templates/ (BRIEF, PLAN, REQUIREMENTS — шаблоны)
+tasks/               # артефакты цикла задач (BRIEF/PLAN по задачам)
 ```
 
 ## Ключевые модули и точки входа
