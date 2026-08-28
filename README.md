@@ -1,4 +1,4 @@
-# CPS Process Mining
+# Process Mining
 
 Платформа process mining для анализа узких мест (bottlenecks) и зацикленностей
 (rework) в логах бизнес-процессов систем электронного документооборота
